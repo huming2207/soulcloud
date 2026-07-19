@@ -7,7 +7,8 @@ use rumqttc::{
 use soulcloud_core::{
     config::{self, ConfigError},
     database::{self, DatabaseError, DbPool},
-    mqtt_topic::{self, DEVICE_TO_PLATFORM_FILTERS},
+    mqtt_stat,
+    mqtt_topic::{self, DEVICE_TO_PLATFORM_FILTERS, DeviceMessageKind},
 };
 use thiserror::Error;
 use url::Url;
@@ -154,15 +155,34 @@ async fn run(_database: DbPool, mut event_loop: EventLoop) -> Result<(), WorkerE
                 match event.map_err(|error| WorkerError::Connection(Box::new(error)))? {
                     Event::Incoming(Incoming::Publish(message)) => {
                         match mqtt_topic::parse_device_message(&message.topic) {
-                            Ok(topic) => {
-                                // Payload decoding and persistence belong here once each
-                                // payload contract has been specified.
-                                tracing::debug!(
-                                    device_uid = topic.device_uid,
-                                    kind = ?topic.kind,
-                                    payload_bytes = message.payload.len(),
-                                    "received device message"
-                                );
+                            Ok(topic) => match topic.kind {
+                                DeviceMessageKind::Log => {
+                                    // The log payload contract has not yet been specified.
+                                    tracing::debug!(
+                                        device_uid = topic.device_uid,
+                                        payload_bytes = message.payload.len(),
+                                        "received device log message"
+                                    );
+                                }
+                                DeviceMessageKind::Stat => match mqtt_stat::decode_device_stat(&message.payload) {
+                                    Ok(stat) => {
+                                        tracing::debug!(
+                                            device_uid = topic.device_uid,
+                                            uptime = stat.uptime,
+                                            payload_bytes = message.payload.len(),
+                                            "received device status"
+                                        );
+                                        // Persistence belongs here once status storage semantics are agreed.
+                                    }
+                                    Err(error) => {
+                                        tracing::warn!(
+                                            device_uid = topic.device_uid,
+                                            payload_bytes = message.payload.len(),
+                                            %error,
+                                            "ignored invalid device status"
+                                        );
+                                    }
+                                },
                             }
                             Err(error) => {
                                 tracing::warn!(topic = %message.topic, %error, "ignored unexpected topic");

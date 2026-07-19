@@ -49,8 +49,80 @@ platform commands separate from device reports:
 
 The worker subscribes to the two device-to-platform topic filters at QoS 1.
 The broker should eventually enforce the same direction rules with per-device
-ACLs. Payload formats, command acknowledgements, and retained-message behavior
-are deliberately still open.
+ACLs. The generic `cmd` and device `stat` payloads are defined below. OTA and
+log payloads, command acknowledgements, and retained-message behavior are still
+open.
+
+## Generic command MessagePack payload
+
+To send a generic command, publish one MessagePack value to
+`soulcloud/v1/devices/{dev_uid}/cmd`. It is a map with the following fields:
+
+| Field | Required | Value |
+| --- | --- | --- |
+| `cmd` | Yes | A non-null MessagePack string containing the command name. |
+| `args` | No | MessagePack `nil`, or an array of argument maps. |
+
+You can omit `args` when the command needs no parameters; `args: nil` means the
+same thing. Otherwise, `args` is an ordered list of one-name argument maps.
+Each map contains exactly one argument name and its value. Values can be null,
+text, raw binary data, an integer or decimal number, or a boolean. Binary data
+uses MessagePack's `bin` type, not an array of byte values. Nested objects,
+lists, and MessagePack extensions are not supported for command arguments.
+
+For example, the following JSON-like representation describes the wire shape;
+the MQTT payload itself is MessagePack, not JSON:
+
+```text
+{
+  cmd: "someCommand",
+  args: [
+    {arg1: "foo"},
+    {arg2: "bar"},
+    {arg3: 67},
+    {arg4: true},
+    {arg5: null}
+  ]
+}
+```
+
+Messages with no `cmd`, a null `cmd`, extra top-level fields, malformed
+arguments, unsupported values, or bytes after the one complete MessagePack
+value are invalid and will be rejected. This keeps the command shape small and
+predictable across devices and services.
+
+## Device status MessagePack payload
+
+Devices report their current status by publishing one MessagePack value to
+`soulcloud/v1/devices/{dev_uid}/stat`. It is a map with all of these fields:
+
+| Field | Value |
+| --- | --- |
+| `sn` | Chip-unique serial number as MessagePack binary (`bin`) data. |
+| `fw` | Firmware hash as MessagePack binary (`bin`) data. |
+| `up` | Uptime counter as an unsigned 64-bit integer. |
+| `rst` | Reset reason as a string. |
+
+For example, the following JSON-like representation describes the wire shape;
+the MQTT payload itself is MessagePack, not JSON:
+
+```text
+{
+  sn: <binary chip serial number>,
+  fw: <binary firmware hash>,
+  up: 4294967296,
+  rst: "watchdog"
+}
+```
+
+All four fields are required. Binary data must use MessagePack's `bin` type,
+not a text string or an array of byte values. Unknown, missing, null, duplicate,
+or incorrectly typed fields—and bytes after the one complete MessagePack
+value—are invalid and will be rejected.
+
+This is the current provisional status format. The serial-number byte layout,
+firmware-hash algorithm and length, uptime units and clock semantics, reset
+reason vocabulary, and status persistence behavior have not yet been defined.
 
 ## What is intentionally not defined yet
 
@@ -60,13 +132,15 @@ correctly designed. In particular, this scaffold does not guess:
 
 - whether customer, project, and fleet form a strict hierarchy or overlap;
 - device identity, enrollment, authentication, or certificate rules;
-- MQTT payload encoding, command acknowledgments, and retained-message behavior;
+- OTA and log payload encoding; command acknowledgments; and retained-message
+  behavior;
 - OTA rollout states, artifact storage, signing, retry, and rollback behavior;
 - ACL inheritance and tenant isolation rules;
 - the exact definition of online, uptime, ping, and clock authority.
 
-The worker parses the v1 topic scheme and logs publication metadata without
-decoding or persisting an unspecified payload.
+The worker validates the defined `stat` payload but does not persist it until
+status storage semantics are agreed. It logs metadata for `log` publications
+without decoding or persisting their still-unspecified payloads.
 
 ## Local commands
 

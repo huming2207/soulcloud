@@ -2,5 +2,8 @@ pub mod config;
 pub mod database;
 pub mod migration;
 pub mod models;
+pub mod mqtt_command;
+mod mqtt_payload;
+pub mod mqtt_stat;
 pub mod mqtt_topic;
 pub mod schema;

@@ -53,8 +53,45 @@ services. Preserve the platform-command/device-report direction split so the
 worker does not consume its own outbound commands. The worker subscribes to
 device-to-platform topics at QoS 1.
 
-The payload encoding, schemas, retained-message policy, acknowledgements, and
-delivery/idempotency rules are not defined yet. Do not silently choose them.
+### Generic command payload (`cmd`)
+
+The platform-to-device `soulcloud/v1/devices/{dev_uid}/cmd` payload is
+MessagePack. Use the shared `soulcloud-core::mqtt_command` types and codec;
+do not add a service-local command schema or MessagePack encoder/decoder.
+
+- The top-level value is a map containing only `cmd` and optional `args`.
+- `cmd` is required and must be a non-null string.
+- `args` may be omitted or MessagePack `nil`; otherwise it is an array.
+- Every `args` entry is a map with exactly one string argument-name key and a
+  value of only `nil`, string, binary, signed/unsigned integer, float, or
+  boolean.
+- Reject unknown top-level fields, missing/null `cmd`, malformed argument maps,
+  array, map, extension, or other unsupported argument values, and any trailing
+  bytes after the one complete MessagePack value.
+
+Keep the implementation and the human-facing `README.md` contract synchronized.
+
+### Device status payload (`stat`)
+
+The device-to-platform `soulcloud/v1/devices/{dev_uid}/stat` payload is
+MessagePack. Use `soulcloud-core::mqtt_stat` for this schema; the worker must
+validate it before any future ingestion or persistence work.
+
+- The top-level value is a map containing only required `sn`, `fw`, `up`, and
+  `rst` fields.
+- `sn` and `fw` are MessagePack binary values for the chip-unique serial number
+  and firmware hash respectively. Do not impose a byte layout, length, or hash
+  algorithm until agreed.
+- `up` is an unsigned 64-bit uptime counter. Its unit and clock semantics are
+  not defined.
+- `rst` is a non-null reset-reason string; its permitted values are not defined.
+- Reject missing, null, duplicate, unknown, and wrongly typed fields, and any
+  trailing bytes after the one complete MessagePack value.
+
+Payload schemas for `ota` and `log`, retained-message policy, acknowledgements,
+delivery/idempotency, and status persistence semantics remain undefined; do not
+choose them without an agreed contract. Keep the implementation and the
+human-facing `README.md` contract synchronized.
 
 ## PostgreSQL and Diesel
 

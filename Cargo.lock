@@ -1041,6 +1041,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "msgpacker"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "362516e5c4eaad307666fc4d8927c23f7948f9cd527dab5c0fbd3b51a4a5733a"
+dependencies = [
+ "bytes",
+ "msgpacker-derive",
+ "serde",
+]
+
+[[package]]
+name = "msgpacker-derive"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aa6c602164791e82913716444fefa7d6bb8902a788ead4d1e20d688cd2642a0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1681,6 +1703,8 @@ dependencies = [
  "diesel",
  "diesel-async",
  "diesel_migrations",
+ "msgpacker",
+ "serde",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
