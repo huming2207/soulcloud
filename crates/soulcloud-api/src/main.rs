@@ -1,13 +1,22 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
-use serde::Serialize;
+use axum::{
+    Json, Router,
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{get, post},
+};
+use serde::{Deserialize, Serialize};
 use soulcloud_core::{
+    command_queue::{self, CommandQueueError},
     config::{self, ConfigError},
     database::{self, DatabaseError, DbPool},
+    mqtt_command::DeviceCommand,
 };
 use thiserror::Error;
 use tokio::net::TcpListener;
+use uuid::Uuid;
 
 #[derive(Clone)]
 struct AppState {
@@ -33,7 +42,7 @@ impl Settings {
 }
 
 #[derive(Debug, Error)]
-enum ApiError {
+enum StartupError {
     #[error("invalid API server configuration")]
     Config(#[from] ConfigError),
 
@@ -53,7 +62,7 @@ struct HealthResponse {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), ApiError> {
+async fn main() -> Result<(), StartupError> {
     init_tracing();
 
     let settings = Settings::from_env()?;
@@ -63,17 +72,112 @@ async fn main() -> Result<(), ApiError> {
     let app = Router::new()
         .route("/health/live", get(live))
         .route("/health/ready", get(ready))
+        .route("/v1/command-batches", post(create_command_batch))
         .with_state(state);
 
     let listener = TcpListener::bind(settings.bind_address)
         .await
-        .map_err(ApiError::Bind)?;
+        .map_err(StartupError::Bind)?;
     tracing::info!(address = %settings.bind_address, "API server listening");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .map_err(ApiError::Serve)
+        .map_err(StartupError::Serve)
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateCommandBatchRequest {
+    device_ids: Vec<Uuid>,
+    command: DeviceCommand,
+}
+
+#[derive(Debug, Serialize)]
+struct CreateCommandBatchResponse {
+    batch_id: Uuid,
+    device_count: i32,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorResponse {
+    error: &'static str,
+    message: String,
+}
+
+#[derive(Debug, Error)]
+enum CommandApiError {
+    #[error(transparent)]
+    Queue(#[from] CommandQueueError),
+}
+
+impl IntoResponse for CommandApiError {
+    fn into_response(self) -> Response {
+        let (status, code, message) = match &self {
+            Self::Queue(
+                CommandQueueError::EmptyTargets
+                | CommandQueueError::DuplicateTargets
+                | CommandQueueError::TooManyTargets,
+            ) => (StatusCode::BAD_REQUEST, "invalid_targets", self.to_string()),
+            Self::Queue(CommandQueueError::MissingTargets(_)) => (
+                StatusCode::NOT_FOUND,
+                "target_devices_not_found",
+                self.to_string(),
+            ),
+            Self::Queue(CommandQueueError::InvalidDeviceUid { .. }) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "invalid_device_uid",
+                self.to_string(),
+            ),
+            Self::Queue(
+                CommandQueueError::AcquireConnection(_)
+                | CommandQueueError::Query(_)
+                | CommandQueueError::LeaseTimeOverflow
+                | CommandQueueError::LeaseConflict { .. }
+                | CommandQueueError::InvalidSequence { .. }
+                | CommandQueueError::ResultMismatch { .. }
+                | CommandQueueError::ConflictingResult { .. }
+                | CommandQueueError::InvalidStoredResult { .. }
+                | CommandQueueError::MissingStoredResult { .. },
+            ) => {
+                tracing::error!(error = %self, "failed to enqueue command batch");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "command_queue_unavailable",
+                    "device command queue is unavailable".to_owned(),
+                )
+            }
+        };
+        (
+            status,
+            Json(ErrorResponse {
+                error: code,
+                message,
+            }),
+        )
+            .into_response()
+    }
+}
+
+async fn create_command_batch(
+    State(state): State<AppState>,
+    Json(request): Json<CreateCommandBatchRequest>,
+) -> Result<(StatusCode, Json<CreateCommandBatchResponse>), CommandApiError> {
+    let batch =
+        command_queue::enqueue_batch(&state.database, &request.device_ids, &request.command)
+            .await?;
+    tracing::info!(
+        batch_id = %batch.id,
+        device_count = batch.device_count,
+        "enqueued device command batch"
+    );
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(CreateCommandBatchResponse {
+            batch_id: batch.id,
+            device_count: batch.device_count,
+        }),
+    ))
 }
 
 async fn live() -> Json<HealthResponse> {

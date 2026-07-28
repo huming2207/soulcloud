@@ -27,10 +27,11 @@ There are two deployable services and one internal library:
   protocol/domain primitives used by both services. It is not deployable.
 
 Both services use the same PostgreSQL database. Keep Redis out of the design
-until it is justified by an actual IPC or scaling requirement. PostgreSQL
-`LISTEN`/`NOTIFY` may be used for transient record-update notification, but the
-database remains the source of truth. Define notification channel names and
-payload contracts centrally before using them.
+until justified by an actual IPC or scaling requirement. Generic commands use
+`command_batches` and per-device `device_commands` as their durable domain
+records and initial outbox. Workers recover by polling and leasing rows;
+PostgreSQL `LISTEN`/`NOTIFY` may later provide transient wake-ups, but consumers
+must still recover from the durable rows.
 
 ## MQTT contract
 
@@ -38,12 +39,17 @@ Device transport is MQTT over WebSocket only. The worker must reject broker URLs
 that are not `ws://` or `wss://`. Preserve optional HTTP CONNECT proxy support
 for restricted corporate networks and WSS on port 443.
 
+For now, the MQTT broker owns username/password authentication. Manually
+provisioned broker accounts are acceptable; Soulcloud does not yet create or
+manage them. Never commit or log broker credentials.
+
 The v1 topics are:
 
 | Direction | Topic | Meaning |
 | --- | --- | --- |
 | Platform to device | `soulcloud/v1/devices/{dev_uid}/ota` | OTA command |
-| Platform to device | `soulcloud/v1/devices/{dev_uid}/cmd` | Generic device command, such as reboot or logging control |
+| Platform to device | `soulcloud/v1/devices/{dev_uid}/cmd/exec` | Execute a generic device command, such as reboot or logging control |
+| Device to platform | `soulcloud/v1/devices/{dev_uid}/cmd/result` | Report a generic command execution result |
 | Device to platform | `soulcloud/v1/devices/{dev_uid}/log` | Log events |
 | Device to platform | `soulcloud/v1/devices/{dev_uid}/stat` | Presence, statistics, and firmware version |
 
@@ -55,11 +61,15 @@ device-to-platform topics at QoS 1.
 
 ### Generic command payload (`cmd`)
 
-The platform-to-device `soulcloud/v1/devices/{dev_uid}/cmd` payload is
+The platform-to-device `soulcloud/v1/devices/{dev_uid}/cmd/exec` payload is
 MessagePack. Use the shared `soulcloud-core::mqtt_command` types and codec;
 do not add a service-local command schema or MessagePack encoder/decoder.
 
-- The top-level value is a map containing only `cmd` and optional `args`.
+- The top-level value is a map containing only required `id`, `seq`, `cmd`, and
+  optional `args`.
+- `id` is exactly 16 MessagePack binary bytes containing the per-device command
+  UUID.
+- `seq` is an unsigned 64-bit monotonically increasing per-device sequence.
 - `cmd` is required and must be a non-null string.
 - `args` may be omitted or MessagePack `nil`; otherwise it is an array.
 - Every `args` entry is a map with exactly one string argument-name key and a
@@ -70,6 +80,44 @@ do not add a service-local command schema or MessagePack encoder/decoder.
   bytes after the one complete MessagePack value.
 
 Keep the implementation and the human-facing `README.md` contract synchronized.
+
+### Generic command result payload (`cmd/result`)
+
+The device-to-platform `soulcloud/v1/devices/{dev_uid}/cmd/result` payload is
+MessagePack and uses `soulcloud-core::mqtt_command`.
+
+- The top-level map contains only required `id`, `seq`, `code`, and optional
+  `payload`.
+- `id` and `seq` exactly copy the execution envelope.
+- `code` is a signed 32-bit C-style result: negative is failure, zero is
+  successful completion without a scalar return code, and positive is a
+  command-specific successful scalar value.
+- Negative numbers belong to the stable Soulcloud error-number contract; never
+  assume native platform errno numbers are portable on the wire.
+- `payload` may be omitted or nil; otherwise it uses the same array of
+  one-entry, string-keyed scalar maps as command `args`.
+- Reject missing, null-required, duplicate, unknown, or wrongly typed fields,
+  malformed payload entries, and trailing bytes.
+
+### Generic command database path
+
+`POST /v1/command-batches` accepts an explicit, non-empty, duplicate-free list
+of internal device UUIDs and one shared `DeviceCommand`. The API validates all
+targets and atomically inserts one batch plus one `device_commands` row per
+device. Fleet/project/customer selectors remain undefined and must not be
+invented; a future authorized API may resolve them to explicit device IDs.
+
+The worker leases eligible rows with `FOR UPDATE SKIP LOCKED`, preserves
+per-device ordering, and publishes one active command at a time to the
+per-device `cmd/exec` topic with QoS 1. It marks a row `broker_accepted` only
+after the matching PUBACK. Later commands for that device remain blocked until
+a matching validated result transitions the row to `device_completed`.
+
+The retained flag is required through `MQTT_COMMAND_RETAIN` until the final
+policy is agreed. QoS 1 and lease recovery allow redelivery. The server
+idempotently stores identical repeated results and rejects mismatched or
+conflicting results. Exactly-once effects still require devices to persist
+processed sequences and terminal results and to avoid repeating side effects.
 
 ### Device status payload (`stat`)
 
@@ -88,14 +136,16 @@ validate it before any future ingestion or persistence work.
 - Reject missing, null, duplicate, unknown, and wrongly typed fields, and any
   trailing bytes after the one complete MessagePack value.
 
-Payload schemas for `ota` and `log`, retained-message policy, acknowledgements,
-delivery/idempotency, and status persistence semantics remain undefined; do not
-choose them without an agreed contract. Keep the implementation and the
-human-facing `README.md` contract synchronized.
+Payload schemas for `ota` and `log`, the final retained-message policy, the
+Soulcloud negative error-number registry, device-side deduplication storage, and
+status persistence semantics remain undefined; do not choose them without an
+agreed contract. Keep the implementation and the human-facing `README.md`
+contract synchronized.
 
 ## PostgreSQL and Diesel
 
-- PostgreSQL is the only supported database.
+- PostgreSQL is the only supported durable database and remains the source of
+  truth.
 - Use Diesel and `diesel-async`; do not add another ORM or raw database client
   for ordinary queries.
 - Put shared connection and database infrastructure in `soulcloud-core`.

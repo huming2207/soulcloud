@@ -79,6 +79,25 @@ where
     })
 }
 
+/// Parses a required environment variable.
+///
+/// # Errors
+///
+/// Returns [`ConfigError::Missing`] when the variable is unset or empty, or
+/// [`ConfigError::Invalid`] when its value cannot be parsed.
+pub fn parse_required<T>(name: &'static str) -> Result<T, ConfigError>
+where
+    T: FromStr,
+    T::Err: std::fmt::Display,
+{
+    let value = required(name)?;
+    value.parse().map_err(|error: T::Err| ConfigError::Invalid {
+        name,
+        value,
+        reason: error.to_string(),
+    })
+}
+
 /// Parses a socket address from an environment variable, with a supplied default.
 ///
 /// # Errors

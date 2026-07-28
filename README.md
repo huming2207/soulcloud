@@ -3,18 +3,19 @@
 Soulcloud is a Rust workspace for an IoT device-management platform. It starts
 with two deployable processes and one internal shared library:
 
-- `soulcloud-api`: human-facing REST API. It currently provides liveness and
-  PostgreSQL-backed readiness endpoints.
+- `soulcloud-api`: human-facing REST API. It provides health endpoints and
+  atomically expands explicit-device command batches into PostgreSQL rows.
 - `soulcloud-worker`: device-facing MQTT worker. It only accepts MQTT over
-  WebSocket (`ws://` or `wss://`) and supports an optional HTTP CONNECT proxy.
+  WebSocket (`ws://` or `wss://`), supports an optional HTTP CONNECT proxy, and
+  publishes queued commands to per-device topics.
 - `soulcloud-core`: shared, non-deployable PostgreSQL/Diesel and configuration
   foundations.
 
 Both processes use the same PostgreSQL database through Diesel's asynchronous
-PostgreSQL connection pool. Redis is not part of the initial architecture.
-PostgreSQL `LISTEN`/`NOTIFY` remains available for later cross-process event
-notification, but no event names or payloads are defined before their contract
-is known.
+PostgreSQL connection pool. Redis is not part of the current architecture.
+Generic device commands use durable PostgreSQL rows as their domain records and
+initial outbox. The worker recovers work by polling; `LISTEN`/`NOTIFY` is not
+needed at the current scale and may be added later only as a wake-up hint.
 
 ## Initial database model
 
@@ -26,6 +27,13 @@ The first migration defines:
 - projects;
 - devices belonging to exactly one project, with a globally unique hardware
   `device_uid`, a project-scoped `assigned_id`, and a password hash.
+
+The command-queue migration adds:
+
+- `command_batches`, one durable record for an API batch request;
+- `device_commands`, one MessagePack payload per target device, with queue,
+  sequence, lease, attempt, broker-acceptance, and terminal-result metadata;
+- a per-device counter used to allocate monotonic command sequences atomically.
 
 Passwords are never stored as plaintext. The password hashing algorithms and
 authentication flows remain to be designed before account or device login is
@@ -43,23 +51,41 @@ platform commands separate from device reports:
 | Direction | Topic | Purpose |
 | --- | --- | --- |
 | Platform to device | `soulcloud/v1/devices/{dev_uid}/ota` | OTA command |
-| Platform to device | `soulcloud/v1/devices/{dev_uid}/cmd` | Generic device command, such as reboot or logging control |
+| Platform to device | `soulcloud/v1/devices/{dev_uid}/cmd/exec` | Execute a generic device command, such as reboot or logging control |
+| Device to platform | `soulcloud/v1/devices/{dev_uid}/cmd/result` | Report a generic command execution result |
 | Device to platform | `soulcloud/v1/devices/{dev_uid}/log` | Log events |
 | Device to platform | `soulcloud/v1/devices/{dev_uid}/stat` | Presence, statistics, and firmware version |
 
-The worker subscribes to the two device-to-platform topic filters at QoS 1.
+The worker subscribes to the three device-to-platform topic filters at QoS 1 and
+publishes generic commands at QoS 1. It leases the oldest eligible database row
+with `FOR UPDATE SKIP LOCKED`, marks a row `broker_accepted` only after the MQTT
+PUBACK, validates and stores terminal device results, and keeps later commands
+for the same device blocked until the preceding result arrives. A crashed
+worker's lease expires so another worker can publish the row again.
+
+The command retained flag remains a deployment choice until the protocol
+contract is finalized, so `MQTT_COMMAND_RETAIN` is required. The development
+example uses `false` to avoid delivering stale commands to reconnecting devices.
 The broker should eventually enforce the same direction rules with per-device
-ACLs. The generic `cmd` and device `stat` payloads are defined below. OTA and
-log payloads, command acknowledgements, and retained-message behavior are still
-open.
+ACLs. The generic command execution/result and device `stat` payloads are
+defined below. OTA and log payloads remain open.
+
+For the initial deployment, the MQTT broker owns username/password
+authentication. Broker accounts are provisioned manually through the broker's
+administration mechanism; Soulcloud does not create or manage broker accounts.
+The worker accepts a manually provisioned service account through
+`MQTT_USERNAME` and `MQTT_PASSWORD`.
 
 ## Generic command MessagePack payload
 
 To send a generic command, publish one MessagePack value to
-`soulcloud/v1/devices/{dev_uid}/cmd`. It is a map with the following fields:
+`soulcloud/v1/devices/{dev_uid}/cmd/exec`. It is a map with the following
+fields:
 
 | Field | Required | Value |
 | --- | --- | --- |
+| `id` | Yes | Exactly 16 binary bytes containing the per-device command UUID. |
+| `seq` | Yes | An unsigned 64-bit, monotonically increasing per-device sequence. |
 | `cmd` | Yes | A non-null MessagePack string containing the command name. |
 | `args` | No | MessagePack `nil`, or an array of argument maps. |
 
@@ -75,6 +101,8 @@ the MQTT payload itself is MessagePack, not JSON:
 
 ```text
 {
+  id: <16 binary UUID bytes>,
+  seq: 42,
   cmd: "someCommand",
   args: [
     {arg1: "foo"},
@@ -86,10 +114,102 @@ the MQTT payload itself is MessagePack, not JSON:
 }
 ```
 
-Messages with no `cmd`, a null `cmd`, extra top-level fields, malformed
-arguments, unsupported values, or bytes after the one complete MessagePack
-value are invalid and will be rejected. This keeps the command shape small and
-predictable across devices and services.
+Messages with a missing, null, duplicate, or wrongly typed field; an ID that is
+not exactly 16 binary bytes; an unknown top-level field; malformed arguments;
+unsupported values; or bytes after the one complete MessagePack value are
+invalid.
+
+## Generic command result MessagePack payload
+
+A device publishes one terminal result to
+`soulcloud/v1/devices/{dev_uid}/cmd/result`:
+
+| Field | Required | Value |
+| --- | --- | --- |
+| `id` | Yes | The exact 16 binary UUID bytes copied from `cmd/exec`. |
+| `seq` | Yes | The unsigned sequence copied from `cmd/exec`. |
+| `code` | Yes | A signed 32-bit C-style result code. |
+| `payload` | No | MessagePack `nil`, or an array of named result maps. |
+
+`code < 0` is failure, `code == 0` is successful completion without a scalar
+return code, and `code > 0` is a command-specific successful scalar result such
+as a count, length, or enum. Negative values use the stable Soulcloud error
+number contract rather than assuming native platform errno numbers are
+portable.
+
+`payload` uses exactly the same one-name map and scalar value rules as `args`.
+For example:
+
+```text
+{
+  id: <16 binary UUID bytes>,
+  seq: 42,
+  code: 0,
+  payload: [
+    {"logging.enabled": true},
+    {"logging.level": 3}
+  ]
+}
+```
+
+The result has no human diagnostic-message field; detailed diagnostics belong
+in the log stream. Missing, duplicate, unknown, null-required, wrongly typed,
+malformed, or trailing data is rejected before persistence.
+
+## Device command API and delivery boundary
+
+The unauthenticated scaffold currently exposes:
+
+```text
+POST /v1/command-batches
+```
+
+The JSON body snapshots an explicit list of internal device UUIDs and one
+generic command:
+
+```json
+{
+  "device_ids": [
+    "0d6fd9c5-4dce-40f0-8e33-4c86d0351dd3",
+    "c3ba66ad-e64d-4460-b504-6cd50dedcc3e"
+  ],
+  "command": {
+    "cmd": "setLogging",
+    "args": [
+      {"enabled": true}
+    ]
+  }
+}
+```
+
+The API validates that targets are non-empty, unique, registered, and safe for
+MQTT topic construction. It then inserts one batch and one command per device
+in a single transaction and returns `202 Accepted`:
+
+```json
+{
+  "batch_id": "ef42ca5f-c035-40fa-88d5-3f08192bd7b5",
+  "device_count": 2
+}
+```
+
+Fleet/customer/project selectors are not exposed yet because their membership
+and authorization contracts are still unresolved. A future authorized API can
+resolve such a selector to device IDs and call the same atomic enqueue path.
+
+`broker_accepted` means only that the MQTT broker returned the QoS 1 PUBACK.
+`device_completed` means the worker validated a matching `cmd/result` ID,
+sequence, and device UID and persisted its signed code and complete result
+packet. Repeated identical results are idempotent; a mismatched or conflicting
+result is rejected.
+
+The API atomically allocates each target device's next sequence and embeds the
+per-device command-row UUID and sequence in its own MessagePack packet. QoS 1
+and expired-lease recovery can still redeliver that packet. Exactly-once side
+effects therefore require the device to durably remember processed sequences
+and their terminal results, and to replay the stored result rather than
+executing a duplicate. Configuration storage should commit its applied sequence
+atomically with the configuration change where possible.
 
 ## Device status MessagePack payload
 
@@ -131,9 +251,10 @@ statistics—need domain and protocol decisions before tables or endpoints can b
 correctly designed. In particular, this scaffold does not guess:
 
 - whether customer, project, and fleet form a strict hierarchy or overlap;
-- device identity, enrollment, authentication, or certificate rules;
-- OTA and log payload encoding; command acknowledgments; and retained-message
-  behavior;
+- device identity, enrollment, broker-account automation, or certificate
+  rules;
+- OTA and log payload encoding; the negative command-error registry,
+  device-side deduplication persistence, and the final retained-message policy;
 - OTA rollout states, artifact storage, signing, retry, and rollback behavior;
 - ACL inheritance and tenant isolation rules;
 - the exact definition of online, uptime, ping, and clock authority.
@@ -148,16 +269,16 @@ Copy `.env.example` to `.env`, replace every example value, and export the
 variables into your shell. Then run:
 
 ```sh
-docker compose up -d postgres
+docker compose up -d --wait postgres
 cargo run -p soulcloud-core --example migrate
 cargo run -p soulcloud-api
 cargo run -p soulcloud-worker
 ```
 
-The Compose database is for local development only. It pins PostgreSQL 18.3,
-binds only to `127.0.0.1`, and uses the development credentials shown in
-`.env.example`. Stop it with `docker compose down`; add `--volumes` only when
-you intentionally want to erase the local database.
+The Compose database is for local development only. PostgreSQL binds only to
+`127.0.0.1` and uses the development credentials shown in `.env.example`. Stop
+it with `docker compose down`; add `--volumes` only when you intentionally want
+to erase the local PostgreSQL database.
 
 API health endpoints:
 
@@ -166,10 +287,18 @@ GET /health/live
 GET /health/ready
 ```
 
+Worker command-queue settings:
+
+```text
+MQTT_COMMAND_RETAIN        required boolean retained flag
+COMMAND_POLL_INTERVAL_MS   queue recovery poll interval (default 500)
+COMMAND_LEASE_SECONDS      lease duration before crash recovery (default 60)
+```
+
 Quality checks:
 
 ```sh
-cargo fmt --check
+cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```

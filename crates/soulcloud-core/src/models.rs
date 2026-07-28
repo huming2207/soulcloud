@@ -2,7 +2,8 @@ use diesel::{Associations, Identifiable, Insertable, Queryable, Selectable};
 use uuid::Uuid;
 
 use crate::schema::{
-    devices, organisation_projects, organisation_users, organisations, projects, users,
+    command_batches, device_commands, devices, organisation_projects, organisation_users,
+    organisations, projects, users,
 };
 
 #[derive(Queryable, Selectable, Identifiable)]
@@ -69,6 +70,8 @@ pub struct Device {
     pub assigned_id: String,
     pub password_hash: String,
     pub project_id: Uuid,
+    /// Next sequence atomically allocated to a command for this device.
+    pub next_command_sequence: i64,
 }
 
 #[derive(Insertable)]
@@ -79,6 +82,24 @@ pub struct NewDevice<'a> {
     pub assigned_id: &'a str,
     pub password_hash: &'a str,
     pub project_id: Uuid,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = command_batches)]
+pub struct NewCommandBatch {
+    pub id: Uuid,
+    pub device_count: i32,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = device_commands)]
+pub struct NewDeviceCommand<'a> {
+    pub id: Uuid,
+    pub batch_id: Uuid,
+    pub device_id: Uuid,
+    pub sequence: i64,
+    pub payload: &'a [u8],
+    pub state: &'static str,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations)]

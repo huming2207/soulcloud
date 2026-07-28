@@ -1,3 +1,4 @@
+pub mod command_queue;
 pub mod config;
 pub mod database;
 pub mod migration;

@@ -4,11 +4,13 @@ const PREFIX: &str = "soulcloud/v1/devices";
 
 pub const LOG_FILTER: &str = "soulcloud/v1/devices/+/log";
 pub const STAT_FILTER: &str = "soulcloud/v1/devices/+/stat";
+pub const COMMAND_RESULT_FILTER: &str = "soulcloud/v1/devices/+/cmd/result";
 
-pub const DEVICE_TO_PLATFORM_FILTERS: [&str; 2] = [LOG_FILTER, STAT_FILTER];
+pub const DEVICE_TO_PLATFORM_FILTERS: [&str; 3] = [LOG_FILTER, STAT_FILTER, COMMAND_RESULT_FILTER];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceMessageKind {
+    CommandResult,
     Log,
     Stat,
 }
@@ -37,6 +39,9 @@ pub fn parse_device_message(topic: &str) -> Result<DeviceTopic<'_>, TopicError> 
         ["soulcloud", "v1", "devices", device_uid, "stat"] => {
             (*device_uid, DeviceMessageKind::Stat)
         }
+        ["soulcloud", "v1", "devices", device_uid, "cmd", "result"] => {
+            (*device_uid, DeviceMessageKind::CommandResult)
+        }
         _ => return Err(TopicError::Invalid),
     };
 
@@ -63,8 +68,8 @@ pub fn ota_command(device_uid: &str) -> Result<String, TopicError> {
 ///
 /// Returns [`TopicError::Invalid`] if the device UID is empty or contains topic
 /// separators, wildcards, or whitespace.
-pub fn command(device_uid: &str) -> Result<String, TopicError> {
-    platform_to_device_topic(device_uid, "cmd")
+pub fn command_execution(device_uid: &str) -> Result<String, TopicError> {
+    platform_to_device_topic(device_uid, "cmd/exec")
 }
 
 fn platform_to_device_topic(device_uid: &str, suffix: &str) -> Result<String, TopicError> {
@@ -103,8 +108,15 @@ mod tests {
             Ok("soulcloud/v1/devices/dev-42/ota")
         );
         assert_eq!(
-            command("dev-42").as_deref(),
-            Ok("soulcloud/v1/devices/dev-42/cmd")
+            command_execution("dev-42").as_deref(),
+            Ok("soulcloud/v1/devices/dev-42/cmd/exec")
+        );
+        assert_eq!(
+            parse_device_message("soulcloud/v1/devices/dev-42/cmd/result"),
+            Ok(DeviceTopic {
+                device_uid: "dev-42",
+                kind: DeviceMessageKind::CommandResult,
+            })
         );
     }
 
@@ -123,10 +135,10 @@ mod tests {
             Err(TopicError::Invalid)
         );
         assert_eq!(
-            parse_device_message("soulcloud/v1/devices/dev-42/cmd"),
+            parse_device_message("soulcloud/v1/devices/dev-42/cmd/exec"),
             Err(TopicError::Invalid)
         );
         assert_eq!(ota_command("bad/device"), Err(TopicError::Invalid));
-        assert_eq!(command("bad/device"), Err(TopicError::Invalid));
+        assert_eq!(command_execution("bad/device"), Err(TopicError::Invalid));
     }
 }

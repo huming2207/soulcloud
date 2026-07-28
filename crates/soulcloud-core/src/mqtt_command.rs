@@ -9,14 +9,14 @@ use serde::{
     ser::SerializeMap,
 };
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::mqtt_payload::{self, ExactDecodeError};
 
-/// A generic command published to a device's `cmd` topic.
+/// The command name and optional arguments accepted by the human API.
 ///
-/// It is encoded as a `MessagePack` map with the `cmd` and `args` fields. The
-/// `cmd` field is mandatory. `args` is decoded as `None` when it is omitted or
-/// `MessagePack` `nil`; it is encoded as `MessagePack` `nil` when it is `None`.
+/// A [`DeviceCommandExecution`] adds the per-device command ID and sequence
+/// required by the MQTT wire contract.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeviceCommand {
     /// The required command name.
@@ -26,7 +26,31 @@ pub struct DeviceCommand {
     pub args: Option<Vec<CommandArgument>>,
 }
 
-/// One named argument in a [`DeviceCommand`].
+/// A command execution published to a device's `cmd/exec` topic.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeviceCommandExecution {
+    /// Stable per-device command identifier, encoded as 16 bytes.
+    pub id: Uuid,
+    /// Monotonically increasing per-device sequence.
+    pub seq: u64,
+    /// Command name and arguments.
+    pub command: DeviceCommand,
+}
+
+/// A terminal execution result published by a device to its `cmd/result` topic.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeviceCommandResult {
+    /// Identifier copied from the command execution.
+    pub id: Uuid,
+    /// Sequence copied from the command execution.
+    pub seq: u64,
+    /// Signed C-style result code: negative is failure and nonnegative is success.
+    pub code: i32,
+    /// Optional named return values using the same representation as command arguments.
+    pub payload: Option<Vec<CommandArgument>>,
+}
+
+/// One named argument or result value.
 ///
 /// This is represented on the wire as a `MessagePack` map containing exactly one
 /// string key and one permitted value, for example `{ "delay": 30 }`.
@@ -87,7 +111,7 @@ pub enum CommandArgumentValue {
     Boolean(bool),
 }
 
-/// Errors returned while decoding a generic command payload.
+/// Errors returned while decoding a generic command execution or result.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CommandPayloadError {
     /// The payload is not a valid generic command `MessagePack` value.
@@ -99,25 +123,295 @@ pub enum CommandPayloadError {
     TrailingBytes,
 }
 
-/// Encodes a generic command as a `MessagePack` map for a device `cmd` topic.
+/// Encodes a generic command execution for a device `cmd/exec` topic.
+#[must_use]
+pub fn encode_device_command_execution(command: &DeviceCommandExecution) -> Vec<u8> {
+    msgpacker_serde::to_vec(command)
+}
+
+/// Decodes a generic command execution from a device `cmd/exec` payload.
+///
+/// # Errors
+///
+/// Returns [`CommandPayloadError::Decode`] when the payload is not a `MessagePack`
+/// map with a 16-byte `id`, unsigned `seq`, non-null `cmd` string, and
+/// optional/null `args` array.
+pub fn decode_device_command_execution(
+    payload: &[u8],
+) -> Result<DeviceCommandExecution, CommandPayloadError> {
+    mqtt_payload::decode_exact(payload).map_err(|error| match error {
+        ExactDecodeError::Decode(source) => CommandPayloadError::Decode(source),
+        ExactDecodeError::TrailingBytes => CommandPayloadError::TrailingBytes,
+    })
+}
+
+/// Encodes the command name and arguments used by the human API.
 #[must_use]
 pub fn encode_device_command(command: &DeviceCommand) -> Vec<u8> {
     msgpacker_serde::to_vec(command)
 }
 
-/// Decodes a generic command from a device `cmd` topic payload.
+/// Decodes a command name and arguments without an execution ID or sequence.
+///
+/// This is the human-API command body, not the `cmd/exec` MQTT envelope.
 ///
 /// # Errors
 ///
-/// Returns [`CommandPayloadError::Decode`] when the payload is not a `MessagePack`
-/// map with a non-null `cmd` string and an optional/null `args` array. Each
-/// element of `args` must be a one-entry string-keyed map with a null, string,
-/// numeric, boolean, or binary value.
+/// Returns [`CommandPayloadError`] if the value is malformed or contains
+/// trailing bytes.
 pub fn decode_device_command(payload: &[u8]) -> Result<DeviceCommand, CommandPayloadError> {
     mqtt_payload::decode_exact(payload).map_err(|error| match error {
         ExactDecodeError::Decode(source) => CommandPayloadError::Decode(source),
         ExactDecodeError::TrailingBytes => CommandPayloadError::TrailingBytes,
     })
+}
+
+/// Encodes a terminal command result for a device `cmd/result` topic.
+#[must_use]
+pub fn encode_device_command_result(result: &DeviceCommandResult) -> Vec<u8> {
+    msgpacker_serde::to_vec(result)
+}
+
+/// Decodes a terminal command result from a device `cmd/result` payload.
+///
+/// # Errors
+///
+/// Returns [`CommandPayloadError::Decode`] unless the payload is a map with a
+/// 16-byte `id`, unsigned `seq`, signed-32-bit `code`, and optional/null
+/// `payload` list using the shared named-value representation.
+pub fn decode_device_command_result(
+    payload: &[u8],
+) -> Result<DeviceCommandResult, CommandPayloadError> {
+    mqtt_payload::decode_exact(payload).map_err(|error| match error {
+        ExactDecodeError::Decode(source) => CommandPayloadError::Decode(source),
+        ExactDecodeError::TrailingBytes => CommandPayloadError::TrailingBytes,
+    })
+}
+
+impl Serialize for DeviceCommandExecution {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(4))?;
+        map.serialize_entry("id", &WireCommandId(self.id))?;
+        map.serialize_entry("seq", &self.seq)?;
+        map.serialize_entry("cmd", &self.command.cmd)?;
+        map.serialize_entry("args", &self.command.args)?;
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceCommandExecution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(DeviceCommandExecutionVisitor)
+    }
+}
+
+struct DeviceCommandExecutionVisitor;
+
+impl<'de> Visitor<'de> for DeviceCommandExecutionVisitor {
+    type Value = DeviceCommandExecution;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a map containing a command ID, sequence, name, and optional arguments")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut id = None;
+        let mut seq = None;
+        let mut cmd = None;
+        let mut args = None;
+        let mut args_seen = false;
+
+        while let Some(field) = map.next_key::<String>()? {
+            match field.as_str() {
+                "id" => {
+                    if id.is_some() {
+                        return Err(de::Error::duplicate_field("id"));
+                    }
+                    id = Some(map.next_value::<WireCommandId>()?.0);
+                }
+                "seq" => {
+                    if seq.is_some() {
+                        return Err(de::Error::duplicate_field("seq"));
+                    }
+                    seq = Some(map.next_value()?);
+                }
+                "cmd" => {
+                    if cmd.is_some() {
+                        return Err(de::Error::duplicate_field("cmd"));
+                    }
+                    cmd = Some(map.next_value()?);
+                }
+                "args" => {
+                    if args_seen {
+                        return Err(de::Error::duplicate_field("args"));
+                    }
+                    args = map.next_value()?;
+                    args_seen = true;
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &field,
+                        &["id", "seq", "cmd", "args"],
+                    ));
+                }
+            }
+        }
+
+        Ok(DeviceCommandExecution {
+            id: id.ok_or_else(|| de::Error::missing_field("id"))?,
+            seq: seq.ok_or_else(|| de::Error::missing_field("seq"))?,
+            command: DeviceCommand {
+                cmd: cmd.ok_or_else(|| de::Error::missing_field("cmd"))?,
+                args,
+            },
+        })
+    }
+}
+
+impl Serialize for DeviceCommandResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(4))?;
+        map.serialize_entry("id", &WireCommandId(self.id))?;
+        map.serialize_entry("seq", &self.seq)?;
+        map.serialize_entry("code", &self.code)?;
+        map.serialize_entry("payload", &self.payload)?;
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceCommandResult {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(DeviceCommandResultVisitor)
+    }
+}
+
+struct DeviceCommandResultVisitor;
+
+impl<'de> Visitor<'de> for DeviceCommandResultVisitor {
+    type Value = DeviceCommandResult;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(
+            "a map containing a command ID, sequence, signed result code, and optional payload",
+        )
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut id = None;
+        let mut seq = None;
+        let mut code = None;
+        let mut payload = None;
+        let mut payload_seen = false;
+
+        while let Some(field) = map.next_key::<String>()? {
+            match field.as_str() {
+                "id" => {
+                    if id.is_some() {
+                        return Err(de::Error::duplicate_field("id"));
+                    }
+                    id = Some(map.next_value::<WireCommandId>()?.0);
+                }
+                "seq" => {
+                    if seq.is_some() {
+                        return Err(de::Error::duplicate_field("seq"));
+                    }
+                    seq = Some(map.next_value()?);
+                }
+                "code" => {
+                    if code.is_some() {
+                        return Err(de::Error::duplicate_field("code"));
+                    }
+                    code = Some(map.next_value()?);
+                }
+                "payload" => {
+                    if payload_seen {
+                        return Err(de::Error::duplicate_field("payload"));
+                    }
+                    payload = map.next_value()?;
+                    payload_seen = true;
+                }
+                _ => {
+                    return Err(de::Error::unknown_field(
+                        &field,
+                        &["id", "seq", "code", "payload"],
+                    ));
+                }
+            }
+        }
+
+        Ok(DeviceCommandResult {
+            id: id.ok_or_else(|| de::Error::missing_field("id"))?,
+            seq: seq.ok_or_else(|| de::Error::missing_field("seq"))?,
+            code: code.ok_or_else(|| de::Error::missing_field("code"))?,
+            payload,
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
+struct WireCommandId(Uuid);
+
+impl Serialize for WireCommandId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(self.0.as_bytes())
+    }
+}
+
+impl<'de> Deserialize<'de> for WireCommandId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(WireCommandIdVisitor)
+    }
+}
+
+struct WireCommandIdVisitor;
+
+impl Visitor<'_> for WireCommandIdVisitor {
+    type Value = WireCommandId;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("exactly 16 binary UUID bytes")
+    }
+
+    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let bytes: [u8; 16] = value
+            .try_into()
+            .map_err(|_| de::Error::invalid_length(value.len(), &self))?;
+        Ok(WireCommandId(Uuid::from_bytes(bytes)))
+    }
+
+    fn visit_borrowed_bytes<E>(self, value: &'_ [u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_bytes(value)
+    }
 }
 
 impl Serialize for DeviceCommand {
@@ -394,6 +688,97 @@ impl Visitor<'_> for CommandArgumentValueVisitor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encodes_and_decodes_command_execution_envelope() {
+        let execution = DeviceCommandExecution {
+            id: Uuid::from_bytes([0x5a; 16]),
+            seq: 42,
+            command: DeviceCommand {
+                cmd: "getConfig".to_owned(),
+                args: Some(vec![CommandArgument::new(
+                    "key",
+                    CommandArgumentValue::String("logging.level".to_owned()),
+                )]),
+            },
+        };
+
+        let encoded = encode_device_command_execution(&execution);
+        assert_eq!(
+            decode_device_command_execution(&encoded),
+            Ok(execution.clone())
+        );
+        assert_eq!(encoded[4], 0xc4, "command ID must use MessagePack bin");
+        assert_eq!(encoded[5], 16, "command ID must contain 16 bytes");
+    }
+
+    #[test]
+    fn encodes_and_decodes_command_result_envelope() {
+        let result = DeviceCommandResult {
+            id: Uuid::from_bytes([0xa5; 16]),
+            seq: 43,
+            code: 0,
+            payload: Some(vec![
+                CommandArgument::new("logging.level", CommandArgumentValue::Unsigned(3)),
+                CommandArgument::new("certificate", CommandArgumentValue::Binary(vec![0, 1, 255])),
+            ]),
+        };
+
+        let encoded = encode_device_command_result(&result);
+        assert_eq!(decode_device_command_result(&encoded), Ok(result));
+    }
+
+    #[test]
+    fn command_result_accepts_negative_code_and_omitted_payload() {
+        let payload = [
+            0x83, 0xa2, b'i', b'd', 0xc4, 0x10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+            15, 0xa3, b's', b'e', b'q', 0x01, 0xa4, b'c', b'o', b'd', b'e', 0xea,
+        ];
+
+        assert_eq!(
+            decode_device_command_result(&payload),
+            Ok(DeviceCommandResult {
+                id: Uuid::from_bytes([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+                seq: 1,
+                code: -22,
+                payload: None,
+            })
+        );
+    }
+
+    #[test]
+    fn command_envelopes_reject_bad_ids_unknown_fields_and_trailing_bytes() {
+        let execution = DeviceCommandExecution {
+            id: Uuid::from_bytes([0x5a; 16]),
+            seq: 1,
+            command: DeviceCommand {
+                cmd: "reboot".to_owned(),
+                args: None,
+            },
+        };
+        let mut bad_id = encode_device_command_execution(&execution);
+        bad_id[5] = 15;
+        assert!(decode_device_command_execution(&bad_id).is_err());
+
+        let unknown_result_field = [
+            0x84, 0xa2, b'i', b'd', 0xc4, 0x10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+            15, 0xa3, b's', b'e', b'q', 0x01, 0xa4, b'c', b'o', b'd', b'e', 0x00, 0xa1, b'x', 0xc0,
+        ];
+        assert!(decode_device_command_result(&unknown_result_field).is_err());
+
+        let result = DeviceCommandResult {
+            id: Uuid::new_v4(),
+            seq: 1,
+            code: 0,
+            payload: None,
+        };
+        let mut trailing = encode_device_command_result(&result);
+        trailing.push(0xff);
+        assert_eq!(
+            decode_device_command_result(&trailing),
+            Err(CommandPayloadError::TrailingBytes)
+        );
+    }
 
     #[test]
     fn decodes_and_encodes_the_documented_command_shape() {
