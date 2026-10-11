@@ -1,6 +1,0 @@
-[migrations_directory]
-dir = "migrations"
-
-[print_schema]
-file = "crates/soulcloud-core/src/schema.rs"
-with_docs = true
