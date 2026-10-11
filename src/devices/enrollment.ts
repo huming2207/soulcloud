@@ -3,8 +3,8 @@
 // 1. The user creates a single-use pairing token (POST /v1/enrollments).
 // 2. Their provisioning app hands it to the device (BLE/SoftAP provisioning data).
 // 3. The device redeems it (POST /v1/device/enroll) and receives a brand-new
-//    device id + MQTT password. Any earlier enrollment of the same hardware is
-//    superseded and its broker connection closed.
+//    device id + MQTT password. The same owner's earlier enrollment of the same
+//    hardware is superseded and its broker connection closed.
 
 import type { BrokerManagement } from "../broker/management.ts";
 import { config } from "../config.ts";
@@ -70,7 +70,9 @@ export async function enrollDevice(req: EnrollRequest, management: BrokerManagem
           .update({ usedAt: new Date(), deviceId });
         if (!token) throw invalidToken();
 
-        const superseded = await t.Device.where({ hardwareId: req.hardwareId, status: "active" })
+        // Only the token owner's own earlier enrollment of this hardware is retired. The hardware
+        // ID is self-reported, so matching across owners would let anyone revoke someone else's device.
+        const superseded = await t.Device.where({ hardwareId: req.hardwareId, ownerId: token.ownerId, status: "active" })
           .select("id")
           .updateAll({ status: "superseded", revokedAt: new Date(), online: false, connectionName: null });
 
