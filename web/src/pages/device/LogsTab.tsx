@@ -96,14 +96,14 @@ export function LogsTab({ device }: { device: Device }) {
   return (
     <>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2, alignItems: { sm: "center" } }}>
-        <TextField select label="Level" value={level} onChange={(e) => setLevel(e.target.value as Level | "")} sx={{ minWidth: 150 }}>
+        <TextField select label="Level" slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }} value={level} onChange={(e) => setLevel(e.target.value as Level | "")} sx={{ minWidth: 150 }}>
           <MenuItem value="">All levels</MenuItem>
           <MenuItem value="error">Errors</MenuItem>
           <MenuItem value="warn">Warnings and above</MenuItem>
           <MenuItem value="info">Info and above</MenuItem>
           <MenuItem value="debug">Debug and above</MenuItem>
         </TextField>
-        <TextField select label="Source" value={kind} onChange={(e) => setKind(e.target.value as Kind | "")} sx={{ minWidth: 150 }}>
+        <TextField select label="Source" slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }} value={kind} onChange={(e) => setKind(e.target.value as Kind | "")} sx={{ minWidth: 150 }}>
           <MenuItem value="">Text and binary</MenuItem>
           <MenuItem value="text">Text</MenuItem>
           <MenuItem value="bin">Binary (on9log)</MenuItem>

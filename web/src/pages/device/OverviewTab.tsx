@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, Grid, Link, Typography } from "@mui/material";
+import { Card, CardContent, CardHeader, Grid, Link, Typography, useTheme } from "@mui/material";
 import { LineChart } from "@mui/x-charts/LineChart";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -28,6 +28,7 @@ function useLiveUptime(device: Device) {
 }
 
 export function OverviewTab({ device }: { device: Device }) {
+  const theme = useTheme();
   const uptime = useLiveUptime(device);
   const health = (device.health ?? {}) as Health;
   const heartbeats = useQuery({
@@ -44,7 +45,7 @@ export function OverviewTab({ device }: { device: Device }) {
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, md: 6 }}>
         <Card sx={{ height: "100%" }}>
-          <CardHeader title="Status" titleTypographyProps={{ variant: "subtitle1" }} />
+          <CardHeader title="Status" slotProps={{ title: { variant: "subtitle1" } }} />
           <CardContent sx={{ pt: 0 }}>
             <Facts
               rows={[
@@ -62,7 +63,7 @@ export function OverviewTab({ device }: { device: Device }) {
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <Card sx={{ height: "100%" }}>
-          <CardHeader title="Hardware & firmware" titleTypographyProps={{ variant: "subtitle1" }} />
+          <CardHeader title="Hardware & firmware" slotProps={{ title: { variant: "subtitle1" } }} />
           <CardContent sx={{ pt: 0 }}>
             <Facts
               rows={[
@@ -88,7 +89,7 @@ export function OverviewTab({ device }: { device: Device }) {
       </Grid>
       <Grid size={{ xs: 12, md: 4 }}>
         <Card sx={{ height: "100%" }}>
-          <CardHeader title="Health" titleTypographyProps={{ variant: "subtitle1" }} />
+          <CardHeader title="Health" slotProps={{ title: { variant: "subtitle1" } }} />
           <CardContent sx={{ pt: 0 }}>
             <Facts
               rows={[
@@ -103,15 +104,15 @@ export function OverviewTab({ device }: { device: Device }) {
       </Grid>
       <Grid size={{ xs: 12, md: 8 }}>
         <Card sx={{ height: "100%" }}>
-          <CardHeader title="Free heap" subheader="From recent heartbeats" titleTypographyProps={{ variant: "subtitle1" }} />
+          <CardHeader title="Free heap" subheader="From recent heartbeats" slotProps={{ title: { variant: "subtitle1" } }} />
           <CardContent sx={{ pt: 0 }}>
             {points.length > 1 ? (
               <LineChart
                 height={220}
                 dataset={points}
-                xAxis={[{ dataKey: "t", scaleType: "time" }]}
+                xAxis={[{ dataKey: "t", scaleType: "time", valueFormatter: (d: Date) => d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) }]}
                 yAxis={[{ valueFormatter: (v: number) => formatBytes(v), width: 80 }]}
-                series={[{ dataKey: "heap", showMark: false, valueFormatter: (v) => formatBytes(v) }]}
+                series={[{ dataKey: "heap", showMark: false, color: theme.palette.primary.main, valueFormatter: (v) => formatBytes(v) }]}
                 margin={{ left: 0, right: 16, top: 16, bottom: 0 }}
               />
             ) : (

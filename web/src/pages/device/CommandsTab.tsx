@@ -71,7 +71,7 @@ export function CommandsTab({ device }: { device: Device }) {
   return (
     <Stack spacing={3}>
       <Card>
-        <CardHeader title="Send a request" subheader="Delivered over MQTT 5 request/response; waits up to 15 s for the answer." titleTypographyProps={{ variant: "subtitle1" }} />
+        <CardHeader title="Send a request" subheader="Delivered over MQTT 5 request/response; waits up to 15 s for the answer." slotProps={{ title: { variant: "subtitle1" } }} />
         <CardContent sx={{ pt: 0 }}>
           <ErrorAlert error={send.error} />
           <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ alignItems: { md: "flex-start" } }}>

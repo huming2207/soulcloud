@@ -86,7 +86,7 @@ export function ShellTab({ device }: { device: Device }) {
           </Box>
         ))}
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <span style={{ color: "#4db6ac", marginRight: 6 }}>{device.id}&gt;</span>
+          <span style={{ color: "#4db6ac", marginRight: 6, whiteSpace: "nowrap", flexShrink: 0 }}>{device.id}&gt;</span>
           <InputBase
             id="shell-input"
             value={input}

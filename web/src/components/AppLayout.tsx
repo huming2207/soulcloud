@@ -8,7 +8,6 @@ import UsersIcon from "@mui/icons-material/People";
 import {
   AppBar,
   Box,
-  Divider,
   Drawer,
   IconButton,
   List,
@@ -92,7 +91,6 @@ export function AppLayout() {
         sx={{ width: DRAWER_WIDTH, flexShrink: 0, "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" } }}
       >
         {drawer}
-        <Divider />
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 3 } }}>
         <Toolbar variant="dense" />
