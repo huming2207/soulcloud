@@ -1,0 +1,249 @@
+// use prisma-8
+
+// Timestamps use the *JsDate column types so application code deals in plain
+// JavaScript Dates on both Bun and Node (no Temporal polyfill needed).
+
+enum UserRole {
+  User  = "user"
+  Admin = "admin"
+}
+
+enum DeviceStatus {
+  Active     = "active"
+  Revoked    = "revoked"
+  Superseded = "superseded"
+}
+
+enum LogKind {
+  Text   = "text"
+  Binary = "bin"
+}
+
+enum CommandStatus {
+  Queued    = "queued"
+  Sent      = "sent"
+  Succeeded = "succeeded"
+  Failed    = "failed"
+  Expired   = "expired"
+}
+
+enum OtaTaskStatus {
+  Pending     = "pending"
+  Sent        = "sent"
+  Downloading = "downloading"
+  Verifying   = "verifying"
+  Rebooting   = "rebooting"
+  Succeeded   = "succeeded"
+  Failed      = "failed"
+  Cancelled   = "cancelled"
+}
+
+model User {
+  id           Uuid              @id @default(uuid(7))
+  email        String            @unique
+  name         String?
+  passwordHash String
+  role         UserRole          @default(User)
+  createdAt    TimestamptzJsDate @default(now())
+  updatedAt    temporal.updatedAtJsDate()
+
+  sessions         Session[]
+  enrollmentTokens EnrollmentToken[]
+  devices          Device[]
+  firmware         Firmware[]
+  otaJobs          OtaJob[]
+
+  @@map("user")
+}
+
+model Session {
+  id         Uuid              @id @default(uuid(7))
+  userId     Uuid
+  tokenHash  String            @unique
+  createdAt  TimestamptzJsDate @default(now())
+  lastUsedAt TimestamptzJsDate @default(now())
+  expiresAt  TimestamptzJsDate
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+// Single-use pairing token handed to a device during provisioning.
+model EnrollmentToken {
+  id         Uuid               @id @default(uuid(7))
+  ownerId    Uuid
+  tokenHash  String             @unique
+  deviceName String?
+  createdAt  TimestamptzJsDate  @default(now())
+  expiresAt  TimestamptzJsDate
+  usedAt     TimestamptzJsDate?
+  deviceId   String?
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("enrollment_token")
+}
+
+types {
+  DeviceId = VarChar(11)
+}
+
+// One row per enrollment. The id doubles as the MQTT username and client id.
+model Device {
+  id                 DeviceId           @id
+  ownerId            Uuid
+  name               String
+  hardwareId         String
+  platform           String
+  chip               String?
+  status             DeviceStatus       @default(Active)
+  passwordHash       String
+  online             Boolean            @default(false)
+  lastSeenAt         TimestamptzJsDate?
+  lastConnectedAt    TimestamptzJsDate?
+  lastDisconnectedAt TimestamptzJsDate?
+  uptimeMs           BigIntNumber?
+  bootId             BigIntNumber?
+  resetReason        String?
+  fwVersion          String?
+  elfSha256          String?
+  currentFirmwareId  Uuid?
+  health             Jsonb?
+  createdAt          TimestamptzJsDate  @default(now())
+  updatedAt          temporal.updatedAtJsDate()
+  revokedAt          TimestamptzJsDate?
+
+  owner      User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  heartbeats DeviceHeartbeat[]
+  logs       DeviceLog[]
+  commands   Command[]
+  otaTasks   OtaTask[]
+
+  @@index([ownerId])
+  @@index([hardwareId])
+  @@map("device")
+}
+
+model DeviceHeartbeat {
+  id         BigIntNumber      @id @default(autoincrement())
+  deviceId   DeviceId
+  receivedAt TimestamptzJsDate @default(now())
+  uptimeMs   BigIntNumber?
+  data       Jsonb
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, receivedAt])
+  @@index([receivedAt])
+  @@map("device_heartbeat")
+}
+
+// Text lines and on9log binary packets. Binary packets keep their raw bytes and
+// are rendered on read against the ELF of the firmware that produced them.
+model DeviceLog {
+  id           BigIntNumber      @id @default(autoincrement())
+  deviceId     DeviceId
+  receivedAt   TimestamptzJsDate @default(now())
+  kind         LogKind
+  level        SmallInt
+  tag          String?
+  deviceTimeMs BigIntNumber?
+  seq          Int?
+  bootId       BigIntNumber?
+  packetType   SmallInt?
+  message      String?
+  raw          Bytes?
+  firmwareId   Uuid?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, id])
+  @@index([receivedAt])
+  @@map("device_log")
+}
+
+// A cloud-to-device request. The id is the MQTT 5 correlation data.
+model Command {
+  id            Uuid              @id @default(uuid(7))
+  deviceId      DeviceId
+  requestedById Uuid?
+  method        String
+  params        Jsonb?
+  status        CommandStatus     @default(Queued)
+  result        Jsonb?
+  error         String?
+  createdAt     TimestamptzJsDate @default(now())
+  sentAt        TimestamptzJsDate?
+  completedAt   TimestamptzJsDate?
+  expiresAt     TimestamptzJsDate
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, createdAt])
+  @@index([status, expiresAt])
+  @@map("command")
+}
+
+model Firmware {
+  id          Uuid              @id @default(uuid(7))
+  ownerId     Uuid
+  platform    String
+  chip        String
+  projectName String
+  version     String
+  idfVersion  String?
+  buildTime   String?
+  elfSha256   String
+  binSha256   String
+  size        Int
+  binKey      String
+  elfKey      String?
+  notes       String?
+  createdAt   TimestamptzJsDate @default(now())
+
+  owner User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  jobs  OtaJob[]
+
+  @@unique([ownerId, binSha256])
+  @@index([elfSha256])
+  @@map("firmware")
+}
+
+model OtaJob {
+  id         Uuid              @id @default(uuid(7))
+  ownerId    Uuid
+  firmwareId Uuid
+  note       String?
+  createdAt  TimestamptzJsDate @default(now())
+
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  firmware Firmware  @relation(fields: [firmwareId], references: [id], onDelete: Restrict)
+  tasks    OtaTask[]
+
+  @@index([ownerId])
+  @@map("ota_job")
+}
+
+model OtaTask {
+  id                Uuid              @id @default(uuid(7))
+  jobId             Uuid
+  deviceId          DeviceId
+  status            OtaTaskStatus     @default(Pending)
+  progress          SmallInt          @default(0)
+  error             String?
+  commandId         Uuid?
+  previousElfSha256 String?
+  createdAt         TimestamptzJsDate @default(now())
+  updatedAt         temporal.updatedAtJsDate()
+  completedAt       TimestamptzJsDate?
+
+  job    OtaJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([deviceId, status])
+  @@map("ota_task")
+}

@@ -1,0 +1,41 @@
+{
+  "name": "soulcloud",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "IoT device management platform: MQTT 5 devices via RabbitMQ, REST API for humans",
+  "engines": {
+    "bun": ">=1.3",
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "start:node": "node src/main.ts",
+    "test": "bun test tests/unit",
+    "test:e2e": "bun test tests/e2e",
+    "typecheck": "tsc --noEmit",
+    "stack:up": "docker compose up -d --wait",
+    "stack:down": "docker compose down",
+    "db:emit": "prisma contract emit",
+    "db:plan": "prisma migration plan",
+    "db:migrate": "prisma db migrate"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.4",
+    "@hono/zod-openapi": "1.6.3",
+    "@prisma/orm-postgres": "8.0.0-rc.17",
+    "dotenv": "18.0.7",
+    "hono": "4.13.13",
+    "pino": "10.4.0",
+    "rabbitmq-amqp-js-client": "1.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/node": "26.6.5",
+    "mqtt": "5.16.0",
+    "prisma": "8.0.0-rc.22",
+    "typescript": "7.0.2"
+  }
+}
