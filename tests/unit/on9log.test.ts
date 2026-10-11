@@ -62,6 +62,24 @@ describe("on9log packets", () => {
     expect(r.message).toBe("<fmt @0x00000000> [u32:42]");
   });
 
+  test("inline tag and format decode without an ELF", () => {
+    const str = (s: string) => {
+      const b = Buffer.alloc(4 + s.length);
+      b.writeUInt32LE(s.length, 0);
+      b.write(s, 4);
+      return [...b];
+    };
+    const raw = packet(PacketType.Log, 2, [...str("net"), ...str("rssi=%d dBm"), 1, 1, 0xc4, 0xff, 0xff, 0xff]);
+    raw.writeUInt32LE(0xffffffff, 8);
+    raw.writeUInt32LE(0xffffffff, 12);
+    const r = renderPacket(raw, null);
+    expect(r).toMatchObject({ tag: "net", message: "rssi=-60 dBm", decoded: true });
+
+    const truncated = packet(PacketType.Log, 2, [9, 0, 0, 0, 65]);
+    truncated.writeUInt32LE(0xffffffff, 8);
+    expect(renderPacket(truncated, null).message).toContain("inline tag truncated");
+  });
+
   test("slip round trip", () => {
     const payload = Buffer.from([0x9a, 0xc0, 0xdb, 0xa5, 0x0a, 0x0d, 1, 2]);
     const frames = slipDeframe(Buffer.concat([Buffer.from("noise"), slipFrame(FRAME_ON9LOG, payload)]));
