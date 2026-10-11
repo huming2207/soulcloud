@@ -1,4 +1,4 @@
-# Local development stack: PostgreSQL and RabbitMQ (AMQP 1.0 + MQTT 5).
+# Local development stack: PostgreSQL and RabbitMQ (AMQP 1.0 + MQTT 5 over WebSocket).
 # The platform itself runs on the host (`bun run dev`); RabbitMQ reaches its
 # broker-auth listener through host.docker.internal.
 name: soulcloud
@@ -31,7 +31,7 @@ services:
       RABBITMQ_DEFAULT_VHOST: soulcloud
     ports:
       - "5672:5672"   # AMQP 1.0 (platform)
-      - "1883:1883"   # MQTT 5 (devices)
+      - "15675:15675" # MQTT 5 over WebSocket (devices)
       - "15672:15672" # management UI / HTTP API
     extra_hosts:
       - "host.docker.internal:host-gateway"
