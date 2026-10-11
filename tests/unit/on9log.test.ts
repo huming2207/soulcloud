@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { ElfStrings } from "../../src/logs/on9log/elf.ts";
-import { PacketType, splitPackets } from "../../src/logs/on9log/packet.ts";
+import { PacketType, parseBoot, splitPackets } from "../../src/logs/on9log/packet.ts";
 import { renderFormat, renderPacket } from "../../src/logs/on9log/render.ts";
 import { FRAME_ON9LOG, slipDeframe, slipFrame } from "../../src/logs/on9log/slip.ts";
 import type { Arg } from "../../src/logs/on9log/args.ts";
@@ -54,6 +54,15 @@ describe("on9log packets", () => {
     expect(packets.map((p) => p.type)).toEqual([PacketType.Log, PacketType.TimeSync]);
     expect(packets[0]!.timeMs).toBe(1234);
     expect(error).toContain("truncated header");
+  });
+
+  test("BOOT carries the image ID in newer firmware", () => {
+    const sha = Buffer.alloc(32, 0xab);
+    const boot = packet(PacketType.Boot, 0, [0x78, 0x56, 0x34, 0x12, 3, 1, 1, 32, ...sha]);
+    const parsed = parseBoot(splitPackets(boot).packets[0]!);
+    expect(parsed).toEqual({ bootId: 0x12345678, resetReason: 3, imageIdKind: 1, imageId: "ab".repeat(32) });
+    const old = parseBoot(splitPackets(packet(PacketType.Boot, 0, [1, 0, 0, 0, 1])).packets[0]!);
+    expect(old).toEqual({ bootId: 1, resetReason: 1, imageIdKind: null, imageId: null });
   });
 
   test("renders without an ELF instead of failing", () => {

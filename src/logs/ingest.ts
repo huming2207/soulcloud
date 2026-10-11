@@ -7,7 +7,8 @@ import { log } from "../log.ts";
 import { resetReasonName } from "../platforms/index.ts";
 import { type IngestDevice, invalidateDevice } from "../devices/cache.ts";
 import { parseTextLog } from "./text.ts";
-import { PacketType, parseBoot, parseDropped, parseTimeSync, splitPackets, type On9logPacket } from "./on9log/packet.ts";
+import { findFirmwareByElf } from "../firmware/lookup.ts";
+import { IMAGE_ID_ELF_SHA256, PacketType, parseBoot, parseDropped, parseTimeSync, splitPackets, type On9logPacket } from "./on9log/packet.ts";
 
 const LEVEL_INFO = 3;
 const LEVEL_WARN = 2;
@@ -41,6 +42,9 @@ export async function ingestBinaryLog(device: IngestDevice, payload: Buffer): Pr
   if (error) log.warn({ deviceId: device.id, error, parsed: packets.length }, "malformed on9log batch");
 
   let bootId = device.bootId;
+  // A BOOT packet names the running image, which is more reliable than the last
+  // status report right after an update; packets after it use that firmware.
+  let firmwareId = device.currentFirmwareId;
   const sync = packets.find((p) => p.type === PacketType.TimeSync);
   const syncInfo = sync ? parseTimeSync(sync) : null;
   if (syncInfo) bootId = syncInfo.bootId;
@@ -63,7 +67,7 @@ export async function ingestBinaryLog(device: IngestDevice, payload: Buffer): Pr
       loggedAt: loggedAt(p),
       seq: p.seq,
       packetType: p.type,
-      firmwareId: device.currentFirmwareId,
+      firmwareId,
     };
     switch (p.type) {
       case PacketType.TimeSync:
@@ -73,9 +77,18 @@ export async function ingestBinaryLog(device: IngestDevice, payload: Buffer): Pr
         if (!boot) continue;
         bootId = boot.bootId;
         const reason = resetReasonName(device.platform, boot.resetReason);
-        await models.Device.where({ id: device.id }).update({ bootId: boot.bootId, resetReason: reason });
+        const update: { bootId: number; resetReason: string | null; elfSha256?: string; currentFirmwareId?: string | null } = {
+          bootId: boot.bootId,
+          resetReason: reason,
+        };
+        if (boot.imageIdKind === IMAGE_ID_ELF_SHA256 && boot.imageId?.length === 64) {
+          firmwareId = (await findFirmwareByElf(device.ownerId, boot.imageId))?.id ?? null;
+          update.elfSha256 = boot.imageId;
+          update.currentFirmwareId = firmwareId;
+        }
+        await models.Device.where({ id: device.id }).update(update);
         invalidateDevice(device.id);
-        rows.push({ ...base, level: LEVEL_INFO, bootId, tag: "boot", message: `boot ${boot.bootId} (${reason})` });
+        rows.push({ ...base, firmwareId, level: LEVEL_INFO, bootId, tag: "boot", message: `boot ${boot.bootId} (${reason})` });
         break;
       }
       case PacketType.Dropped: {

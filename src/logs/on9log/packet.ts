@@ -74,9 +74,33 @@ export function splitPackets(buf: Buffer): SplitResult {
   return { packets };
 }
 
-export function parseBoot(p: On9logPacket): { bootId: number; resetReason: number } | null {
+/** on9log_image_id_kind_t value for "the ELF's SHA-256" (what ESP-IDF reports). */
+export const IMAGE_ID_ELF_SHA256 = 1;
+
+export interface BootInfo {
+  bootId: number;
+  resetReason: number;
+  /** Image ID of the running firmware (newer on9log only), as hex. */
+  imageIdKind: number | null;
+  imageId: string | null;
+}
+
+/**
+ * BOOT payload: u32 boot_id, u8 reset_reason, then (wire format 1 and later)
+ * u8 wire_format_version, u8 image_id_kind, u8 image_id_len, image_id bytes.
+ */
+export function parseBoot(p: On9logPacket): BootInfo | null {
   if (p.payload.length < 5) return null;
-  return { bootId: p.payload.readUInt32LE(0), resetReason: p.payload.readUInt8(4) };
+  const info: BootInfo = { bootId: p.payload.readUInt32LE(0), resetReason: p.payload.readUInt8(4), imageIdKind: null, imageId: null };
+  if (p.payload.length >= 8) {
+    const kind = p.payload.readUInt8(6);
+    const len = p.payload.readUInt8(7);
+    if (kind !== 0 && len > 0 && p.payload.length >= 8 + len) {
+      info.imageIdKind = kind;
+      info.imageId = p.payload.subarray(8, 8 + len).toString("hex");
+    }
+  }
+  return info;
 }
 
 export function parseTimeSync(p: On9logPacket): { bootId: number } | null {
