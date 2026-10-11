@@ -15,7 +15,7 @@ describe("topic mapping", () => {
   test("mqtt <-> routing key", () => {
     expect(mqttTopicToRoutingKey(`d/${ID}/up/req/ota.check`)).toBe(`d.${ID}.up.req.ota/check`);
     expect(mqttTopicToRoutingKey(`d/${ID}/down/+/x/#`)).toBe(`d.${ID}.down.*.x.#`);
-    expect(routingKeyToMqttTopic(deviceTopics.downRequest(ID, "ota.start"))).toBe(`d/${ID}/down/req/ota.start`);
+    expect(routingKeyToMqttTopic(deviceTopics.downRequest(ID, "ota.start"))).toBe(`d/${ID}/down/req/ota/start`);
   });
 
   test("parse up routing keys", () => {

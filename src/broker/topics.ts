@@ -1,22 +1,26 @@
 // Device topic scheme. Devices speak MQTT topics (`d/<id>/up/status`); RabbitMQ
-// routes them through `amq.topic` with `/` swapped for `.` (`d.<id>.up.status`).
+// routes them through `amq.topic` with `/` turned into `.` (`d.<id>.up.status`).
 // The platform only ever sees routing keys.
 //
 //   up   (device -> cloud)  d/<id>/up/status | log/text | log/bin | evt/<name> | res | req/<method>
 //   down (cloud -> device)  d/<id>/down/req/<method> | down/res
+//
+// Method names are dotted in the API (`ota.start`) and become topic levels on
+// the wire (`d/<id>/down/req/ota/start`).
 
 export const TOPIC_EXCHANGE = "amq.topic";
 
 /** Binding for the platform's ingest queue: everything any device sends. */
 export const UP_BINDING_KEY = "d.*.up.#";
 
+/** MQTT -> AMQP: RabbitMQ swaps `/` and `.` and maps the `+` wildcard to `*`. */
 export function mqttTopicToRoutingKey(topic: string): string {
-  // RabbitMQ swaps the separators both ways and maps MQTT wildcards.
   return topic.replace(/[./]/g, (c) => (c === "/" ? "." : "/")).replace(/\+/g, "*");
 }
 
+/** AMQP -> MQTT: each `.` becomes a topic level separator. */
 export function routingKeyToMqttTopic(rk: string): string {
-  return rk.replace(/[./]/g, (c) => (c === "." ? "/" : ".")).replace(/\*/g, "+");
+  return rk.replaceAll(".", "/").replace(/\*/g, "+");
 }
 
 export function exchangeAddress(routingKey: string): string {
@@ -26,8 +30,8 @@ export function exchangeAddress(routingKey: string): string {
 export const deviceTopics = {
   upPrefix: (id: string) => `d/${id}/up/`,
   downPrefix: (id: string) => `d/${id}/down/`,
-  /** Routing key for a cloud -> device request; devices see `d/<id>/down/req/<method>`. */
-  downRequest: (id: string, method: string) => `d.${id}.down.req.${method.replaceAll(".", "/")}`,
+  /** Routing key for a cloud -> device request; `ota.start` arrives as `d/<id>/down/req/ota/start`. */
+  downRequest: (id: string, method: string) => `d.${id}.down.req.${method}`,
   /** Routing key for the platform's reply to a device -> cloud request. */
   downResponse: (id: string) => `d.${id}.down.res`,
   /** MQTT topic devices must use as Response Topic target for cloud requests. */
