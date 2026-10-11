@@ -27,4 +27,16 @@ export class BrokerManagement {
       log.warn({ err, username }, "closing broker connections failed");
     }
   }
+
+  /** Live connections in the platform vhost: who and the connection name. */
+  async listConnections(vhost: string): Promise<{ user: string; name: string }[]> {
+    const res = await fetch(`${this.base}/api/connections?columns=user,name,vhost&disable_stats=true`, {
+      headers: { authorization: this.auth },
+    });
+    if (!res.ok) throw new Error(`listing broker connections failed: ${res.status}`);
+    const rows = (await res.json()) as { user?: string; name?: string; vhost?: string }[];
+    return rows
+      .filter((r) => r.vhost === vhost && r.user && r.name)
+      .map((r) => ({ user: r.user!, name: r.name! }));
+  }
 }

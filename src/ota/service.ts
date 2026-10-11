@@ -12,7 +12,7 @@ import { z } from "zod";
 import { models } from "../db.ts";
 import { bus } from "../events.ts";
 import { signedDownloadUrl } from "../firmware/service.ts";
-import { ApiError, badRequest, notFound } from "../http/errors.ts";
+import { badRequest, notFound } from "../http/errors.ts";
 import { log } from "../log.ts";
 import { elfShaMatches } from "../platforms/index.ts";
 import type { Commands } from "../rpc/commands.ts";
@@ -172,6 +172,3 @@ export class OtaService {
   }
 }
 
-export function assertOwner(isAdmin: boolean, ownerId: string, userId: string) {
-  if (!isAdmin && ownerId !== userId) throw new ApiError(404, "not_found", "not found");
-}

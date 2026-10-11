@@ -1,0 +1,40 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index c28f039485b6c62154922b59b5ee4852210b14f0..57571ea3c00768047d105e00a8edea1a3344c1f1 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -2926,7 +2926,6 @@ class AmqpPublisher {
+     this.senderLink = senderLink;
+     this._id = _id;
+     this.publishersList = publishersList;
+-    console.log(this.connection.container_id);
+     this.successMessageHandler = (senderEvent) => {
+       return (context) => {
+         if (context.delivery) {
+@@ -3100,7 +3099,6 @@ class AmqpConsumer {
+     this.consumersList = consumersList;
+     this.receiverLink = receiverLink;
+     this.params = params;
+-    console.log(this.connection.container_id);
+   }
+   _id;
+   connection;
+diff --git a/dist/index.js b/dist/index.js
+index df3f0b0b11ce58fe64ccb9681fb8d49f4b3239c8..c75da8bfeed42cf9d0bf675570bb8466591c9fc8 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -5404,7 +5404,6 @@ class AmqpPublisher {
+     this.senderLink = senderLink;
+     this._id = _id;
+     this.publishersList = publishersList;
+-    console.log(this.connection.container_id);
+     this.successMessageHandler = (senderEvent) => {
+       return (context) => {
+         if (context.delivery) {
+@@ -5578,7 +5577,6 @@ class AmqpConsumer {
+     this.consumersList = consumersList;
+     this.receiverLink = receiverLink;
+     this.params = params;
+-    console.log(this.connection.container_id);
+   }
+   _id;
+   connection;

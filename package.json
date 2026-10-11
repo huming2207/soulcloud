@@ -38,5 +38,8 @@
     "mqtt": "5.16.0",
     "prisma": "8.0.0-rc.22",
     "typescript": "7.0.2"
+  },
+  "patchedDependencies": {
+    "rabbitmq-amqp-js-client@1.0.0": "patches/rabbitmq-amqp-js-client@1.0.0.patch"
   }
 }
