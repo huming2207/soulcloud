@@ -119,6 +119,15 @@ export function FirmwarePage() {
     },
   });
 
+  const closeDelete = () => {
+    setDeleting(null);
+    remove.reset();
+  };
+  const closeAttach = () => {
+    setAttaching(null);
+    attach.reset();
+  };
+
   const columns: GridColDef<Firmware>[] = [
     { field: "projectName", headerName: "Project", flex: 1, minWidth: 150 },
     { field: "version", headerName: "Version", width: 130 },
@@ -202,9 +211,9 @@ export function FirmwarePage() {
         busy={remove.isPending}
         error={remove.error}
         onConfirm={() => deleting && remove.mutate(deleting)}
-        onClose={() => (setDeleting(null), remove.reset())}
+        onClose={closeDelete}
       />
-      <Dialog open={attaching !== null} onClose={() => (setAttaching(null), attach.reset())} maxWidth="sm" fullWidth>
+      <Dialog open={attaching !== null} onClose={closeAttach} maxWidth="sm" fullWidth>
         <DialogTitle>Attach ELF</DialogTitle>
         <DialogContent>
           <ErrorAlert error={attach.error} />
@@ -217,7 +226,7 @@ export function FirmwarePage() {
           </Button>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => (setAttaching(null), attach.reset())}>Close</Button>
+          <Button onClick={closeAttach}>Close</Button>
         </DialogActions>
       </Dialog>
     </>

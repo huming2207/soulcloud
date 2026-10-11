@@ -122,7 +122,13 @@ function DeviceActions({ device }: { device: Device }) {
   if (device.status !== "active") return null;
   return (
     <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-      <Button startIcon={<EditIcon />} onClick={() => (setName(device.name), setDialog("rename"))}>
+      <Button
+        startIcon={<EditIcon />}
+        onClick={() => {
+          setName(device.name);
+          setDialog("rename");
+        }}
+      >
         Rename
       </Button>
       <Button startIcon={<RestartIcon />} onClick={() => setDialog("reboot")}>
