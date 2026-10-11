@@ -175,11 +175,8 @@
               "deviceId": {
                 "nullable": false,
                 "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 11
-                  }
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
                 }
               },
               "error": {
@@ -374,11 +371,8 @@
               "id": {
                 "nullable": false,
                 "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 11
-                  }
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
                 }
               },
               "lastConnectedAt": {
@@ -642,11 +636,8 @@
               "deviceId": {
                 "nullable": false,
                 "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 11
-                  }
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
                 }
               },
               "id": {
@@ -723,11 +714,8 @@
               "deviceId": {
                 "nullable": false,
                 "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 11
-                  }
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
                 }
               },
               "deviceTimeMs": {
@@ -1314,11 +1302,8 @@
               "deviceId": {
                 "nullable": false,
                 "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 11
-                  }
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
                 }
               },
               "error": {
@@ -1735,10 +1720,9 @@
                   "nullable": false
                 },
                 "deviceId": {
-                  "codecId": "sql/varchar@1",
-                  "dataType": "pg/varchar",
-                  "nullable": false,
-                  "typeRef": "DeviceId"
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
                 },
                 "error": {
                   "codecId": "pg/text@1",
@@ -1907,10 +1891,9 @@
                   "nullable": true
                 },
                 "id": {
-                  "codecId": "sql/varchar@1",
-                  "dataType": "pg/varchar",
-                  "nullable": false,
-                  "typeRef": "DeviceId"
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
                 },
                 "lastConnectedAt": {
                   "codecId": "pg/timestamptz-date@1",
@@ -2047,10 +2030,9 @@
                   "nullable": false
                 },
                 "deviceId": {
-                  "codecId": "sql/varchar@1",
-                  "dataType": "pg/varchar",
-                  "nullable": false,
-                  "typeRef": "DeviceId"
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
                 },
                 "id": {
                   "codecId": "pg/int8number@1",
@@ -2147,10 +2129,9 @@
                   "nullable": true
                 },
                 "deviceId": {
-                  "codecId": "sql/varchar@1",
-                  "dataType": "pg/varchar",
-                  "nullable": false,
-                  "typeRef": "DeviceId"
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
                 },
                 "deviceTimeMs": {
                   "codecId": "pg/int8number@1",
@@ -2634,10 +2615,9 @@
                   "nullable": false
                 },
                 "deviceId": {
-                  "codecId": "sql/varchar@1",
-                  "dataType": "pg/varchar",
-                  "nullable": false,
-                  "typeRef": "DeviceId"
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
                 },
                 "error": {
                   "codecId": "pg/text@1",
@@ -2978,17 +2958,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "a6bfbbffdb38c068f12a1ac55a3f14da32438642751497133c4287ab94a532f9",
-    "types": {
-      "DeviceId": {
-        "codecId": "sql/varchar@1",
-        "dataType": "pg/varchar",
-        "kind": "codec-instance",
-        "typeParams": {
-          "length": 11
-        }
-      }
-    }
+    "storageHash": "b03e722ab1fb0ba0c3082d97f47a9d157f4d2b0ee030a63ca0f5de81d8f99965"
   },
   "execution": {
     "executionHash": "195fd9d1cbf1718bc1fc335b38eb563bd067bb4db9db454bd5fcfacf5d69f6ff",

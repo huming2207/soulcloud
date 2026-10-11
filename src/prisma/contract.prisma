@@ -87,13 +87,10 @@ model EnrollmentToken {
   @@map("enrollment_token")
 }
 
-types {
-  DeviceId = VarChar(11)
-}
 
 // One row per enrollment. The id doubles as the MQTT username and client id.
 model Device {
-  id                 DeviceId           @id
+  id                 String           @id
   ownerId            Uuid
   name               String
   hardwareId         String
@@ -129,7 +126,7 @@ model Device {
 
 model DeviceHeartbeat {
   id         BigIntNumber      @id @default(autoincrement())
-  deviceId   DeviceId
+  deviceId   String
   receivedAt TimestamptzJsDate @default(now())
   uptimeMs   BigIntNumber?
   data       Jsonb
@@ -145,7 +142,7 @@ model DeviceHeartbeat {
 // are rendered on read against the ELF of the firmware that produced them.
 model DeviceLog {
   id           BigIntNumber      @id @default(autoincrement())
-  deviceId     DeviceId
+  deviceId     String
   receivedAt   TimestamptzJsDate @default(now())
   kind         LogKind
   level        SmallInt
@@ -168,7 +165,7 @@ model DeviceLog {
 // A cloud-to-device request. The id is the MQTT 5 correlation data.
 model Command {
   id            Uuid              @id @default(uuid(7))
-  deviceId      DeviceId
+  deviceId      String
   requestedById Uuid?
   method        String
   params        Jsonb?
@@ -230,7 +227,7 @@ model OtaJob {
 model OtaTask {
   id                Uuid              @id @default(uuid(7))
   jobId             Uuid
-  deviceId          DeviceId
+  deviceId          String
   status            OtaTaskStatus     @default(Pending)
   progress          SmallInt          @default(0)
   error             String?
