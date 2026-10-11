@@ -20,7 +20,9 @@ export function ShellTab({ device }: { device: Device }) {
   const end = useRef<HTMLDivElement>(null);
   const busy = entries.some((e) => e.pending);
 
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [entries]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [entries]);
 
   async function run(line: string) {
     const index = entries.length;
