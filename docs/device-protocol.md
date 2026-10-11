@@ -14,8 +14,10 @@ A device talks to the platform in two ways:
 ## 1. Enrollment
 
 Every enrollment pairs a device with a user and yields a brand-new device id
-and MQTT password. Re-enrolling the same hardware (same `hardwareId`) retires
-the previous id: its credentials stop working and its connection is closed.
+and MQTT password. When the same user enrolls the same hardware (same
+`hardwareId`) again, the previous id is retired: its credentials stop working
+and its connection is closed. Enrolling it under a different user leaves the
+old owner's record in place (offline); the old owner can unpair it.
 
 1. The user creates a pairing token in the app (`POST /v1/enrollments`). It
    looks like `K7QD-M3XA-9PZT-4HNC`, is single-use and expires (10 minutes by
