@@ -110,11 +110,16 @@ export function logRoutes(app: App, deps: ApiDeps) {
             }
             continue;
           }
+          // Sleep until new logs arrive or the keep-alive is due, whichever is first.
           await new Promise<void>((resolve) => {
-            wake = resolve;
-            setTimeout(resolve, KEEPALIVE_MS);
+            const timer = setTimeout(done, KEEPALIVE_MS);
+            function done() {
+              clearTimeout(timer);
+              wake = null;
+              resolve();
+            }
+            wake = done;
           });
-          wake = null;
           if (!pending.length && !stream.aborted) await stream.write(": keep-alive\n\n");
         }
         off();
