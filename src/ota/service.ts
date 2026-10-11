@@ -70,24 +70,32 @@ export class OtaService {
     return { job, tasks };
   }
 
-  /** Starts the device's oldest pending task unless one is already running. */
-  async dispatch(deviceId: string) {
+  /**
+   * Starts the device's oldest pending task unless one is already running.
+   * `via: "command"` sends ota.start; `via: "check"` only returns the
+   * parameters, because they go back as the answer to the device's ota.check.
+   */
+  async dispatch(deviceId: string, via: "command" | "check" = "command") {
     const running = await models.OtaTask.where({ deviceId }).where((t) => t.status.in([...ACTIVE])).first();
     if (running) return null;
     const next = await models.OtaTask.where({ deviceId, status: "pending" }).orderBy((t) => t.createdAt.asc()).first();
-    return next ? this.start(next) : null;
+    return next ? this.start(next, via) : null;
   }
 
-  private async start(task: Task) {
+  private async start(task: Task, via: "command" | "check") {
     const job = await models.OtaJob.where({ id: task.jobId }).first();
     const firmware = job && (await models.Firmware.where({ id: job.firmwareId }).first());
     const device = await models.Device.select("elfSha256").where({ id: task.deviceId }).first();
     if (!firmware || !device) return null;
     const params = this.startParams(task, firmware);
-    const command = await this.commands.create({ deviceId: task.deviceId, method: "ota.start", params, ttlSec: START_TTL_SEC });
+    let commandId: string | null = null;
+    if (via === "command") {
+      const command = await this.commands.create({ deviceId: task.deviceId, method: "ota.start", params, ttlSec: START_TTL_SEC });
+      commandId = command.id;
+    }
     await models.OtaTask.where({ id: task.id, status: "pending" }).update({
       status: "sent",
-      commandId: command.id,
+      commandId,
       previousElfSha256: device.elfSha256,
     });
     log.info({ taskId: task.id, deviceId: task.deviceId, version: firmware.version }, "OTA started");
@@ -112,7 +120,7 @@ export class OtaService {
       const firmware = job && (await models.Firmware.where({ id: job.firmwareId }).first());
       return { update: firmware ? this.startParams(active, firmware) : null };
     }
-    return { update: await this.dispatch(device.id) };
+    return { update: await this.dispatch(device.id, "check") };
   }
 
   private async onEvent(device: IngestDevice, payload: unknown) {
