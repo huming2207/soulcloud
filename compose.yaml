@@ -29,6 +29,9 @@ services:
       RABBITMQ_DEFAULT_USER: soulcloud
       RABBITMQ_DEFAULT_PASS: soulcloud
       RABBITMQ_DEFAULT_VHOST: soulcloud
+      # The platform runs on the host; must match BROKER_AUTH_SECRET in .env.
+      BROKER_AUTH_URL: http://host.docker.internal:8081/broker/dev-broker-secret
+    entrypoint: ["/bin/sh", "/opt/soulcloud/start.sh"]
     ports:
       - "5672:5672"   # AMQP 1.0 (platform)
       - "15675:15675" # MQTT 5 over WebSocket (devices)
@@ -39,6 +42,7 @@ services:
       - rmqdata:/var/lib/rabbitmq
       - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/90-soulcloud.conf:ro
       - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./deploy/rabbitmq/start.sh:/opt/soulcloud/start.sh:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
