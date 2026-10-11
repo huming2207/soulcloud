@@ -1,0 +1,164 @@
+# Production deployment: Traefik terminates TLS (Let's Encrypt) for one domain.
+#
+#   cp deploy/production.env.example .env.production   # fill in every value
+#   docker compose -f compose.prod.yaml --env-file .env.production up -d --build
+#
+#   https://$DOMAIN/            web UI
+#   https://$DOMAIN/v1/...      REST API
+#   wss://$DOMAIN/ws            MQTT 5 over WebSocket (devices)
+#
+# PostgreSQL and RabbitMQ are not exposed. The RabbitMQ management UI listens
+# on the host's loopback only: ssh -L 15672:127.0.0.1:15672 <server>.
+
+name: soulcloud-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+x-platform-env: &platform-env
+  DATABASE_URL: postgresql://soulcloud:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/soulcloud
+  AMQP_HOST: rabbitmq
+  AMQP_USER: soulcloud
+  AMQP_PASSWORD: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD}
+  AMQP_VHOST: soulcloud
+  RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+  PUBLIC_BASE_URL: https://${DOMAIN:?set DOMAIN}
+  DEVICE_MQTT_URL: wss://${DOMAIN}/ws
+  BROKER_AUTH_SECRET: ${BROKER_AUTH_SECRET:?set BROKER_AUTH_SECRET}
+  DEVICE_PASSWORD_PEPPER: ${DEVICE_PASSWORD_PEPPER:?set DEVICE_PASSWORD_PEPPER}
+  DOWNLOAD_SIGNING_SECRET: ${DOWNLOAD_SIGNING_SECRET:?set DOWNLOAD_SIGNING_SECRET}
+  ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
+  HEARTBEAT_RETENTION_DAYS: ${HEARTBEAT_RETENTION_DAYS:-30}
+
+services:
+  traefik:
+    image: traefik:v3.7.14
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls.certresolver=le
+      # Long firmware uploads; WebSocket and SSE connections are long-lived.
+      - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=300s
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:?set ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.caserver=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --accesslog=true
+      - --log.level=INFO
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    logging: *logging
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: soulcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: soulcloud
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soulcloud -d soulcloud"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.3-management-alpine
+    hostname: soulcloud-rabbitmq
+    entrypoint: ["/bin/sh", "/opt/soulcloud/start.sh"]
+    environment:
+      RABBITMQ_DEFAULT_USER: soulcloud
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: soulcloud
+      BROKER_AUTH_URL: http://platform:8081/broker/${BROKER_AUTH_SECRET}
+    ports:
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rmqdata:/var/lib/rabbitmq
+      - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/90-soulcloud.conf:ro
+      - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./deploy/rabbitmq/start.sh:/opt/soulcloud/start.sh:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mqtt.rule=Host(`${DOMAIN}`) && Path(`/ws`)
+      - traefik.http.routers.mqtt.entrypoints=websecure
+      - traefik.http.routers.mqtt.middlewares=secure-headers@docker
+      - traefik.http.services.mqtt.loadbalancer.server.port=15675
+    logging: *logging
+    restart: unless-stopped
+
+  migrate:
+    image: ${IMAGE_PREFIX:-soulcloud}/platform:${IMAGE_TAG:-latest}
+    build: .
+    command: ["bun", "--bun", "run", "db:deploy"]
+    environment: *platform-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+    restart: "no"
+
+  platform:
+    image: ${IMAGE_PREFIX:-soulcloud}/platform:${IMAGE_TAG:-latest}
+    build: .
+    environment: *platform-env
+    volumes:
+      - platformdata:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/v1`) || Path(`/openapi.json`) || Path(`/healthz`))
+      - traefik.http.routers.api.entrypoints=websecure
+      - traefik.http.routers.api.middlewares=secure-headers@docker
+      - traefik.http.services.api.loadbalancer.server.port=8080
+    logging: *logging
+    restart: unless-stopped
+
+  web:
+    image: ${IMAGE_PREFIX:-soulcloud}/web:${IMAGE_TAG:-latest}
+    build: ./web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.web.entrypoints=websecure
+      - traefik.http.routers.web.priority=1
+      - traefik.http.routers.web.middlewares=secure-headers@docker
+      - traefik.http.services.web.loadbalancer.server.port=80
+      # Shared middleware, used by every router as secure-headers@docker.
+      - traefik.http.middlewares.secure-headers.headers.stsSeconds=31536000
+      - traefik.http.middlewares.secure-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true
+    logging: *logging
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  rmqdata:
+  platformdata:
+  letsencrypt:
