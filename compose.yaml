@@ -1,0 +1,50 @@
+# Local development stack: PostgreSQL and RabbitMQ (AMQP 1.0 + MQTT 5).
+# The platform itself runs on the host (`bun run dev`); RabbitMQ reaches its
+# broker-auth listener through host.docker.internal.
+name: soulcloud
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: soulcloud
+      POSTGRES_PASSWORD: soulcloud
+      POSTGRES_DB: soulcloud
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soulcloud -d soulcloud"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4.3-management-alpine
+    hostname: soulcloud-rabbitmq
+    environment:
+      # Platform service account (internal auth backend). Devices are
+      # authenticated by the platform through rabbitmq_auth_backend_http.
+      RABBITMQ_DEFAULT_USER: soulcloud
+      RABBITMQ_DEFAULT_PASS: soulcloud
+      RABBITMQ_DEFAULT_VHOST: soulcloud
+    ports:
+      - "5672:5672"   # AMQP 1.0 (platform)
+      - "1883:1883"   # MQTT 5 (devices)
+      - "15672:15672" # management UI / HTTP API
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - rmqdata:/var/lib/rabbitmq
+      - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/90-soulcloud.conf:ro
+      - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+volumes:
+  pgdata:
+  rmqdata:

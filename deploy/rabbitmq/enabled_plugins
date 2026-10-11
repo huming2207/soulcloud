@@ -1,0 +1,1 @@
+[rabbitmq_management,rabbitmq_mqtt,rabbitmq_auth_backend_http,rabbitmq_auth_backend_cache,rabbitmq_event_exchange].
