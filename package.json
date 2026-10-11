@@ -19,7 +19,8 @@
     "stack:down": "docker compose down",
     "db:emit": "prisma contract emit",
     "db:plan": "prisma migration plan",
-    "db:migrate": "prisma db migrate"
+    "db:migrate": "prisma db migrate --advance-ref db",
+    "db:deploy": "prisma db migrate"
   },
   "dependencies": {
     "@hono/node-server": "2.1.4",

@@ -1,0 +1,1819 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.command",
+    "label": "Create table \"command\"",
+    "summary": "Creates table \"command\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "command"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"command\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"command\"",
+        "sql": "CREATE TABLE \"public\".\"command\" (\n  \"completedAt\" timestamptz,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deviceId\" text NOT NULL,\n  \"error\" text,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"method\" text NOT NULL,\n  \"params\" jsonb,\n  \"requestedById\" uuid,\n  \"result\" jsonb,\n  \"sentAt\" timestamptz,\n  \"status\" text DEFAULT 'queued' NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"command_status_check_55435a5d\" CHECK (\"status\" IN ('queued', 'sent', 'succeeded', 'failed', 'expired'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"command\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.device",
+    "label": "Create table \"device\"",
+    "summary": "Creates table \"device\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "device"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"device\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"device\"",
+        "sql": "CREATE TABLE \"public\".\"device\" (\n  \"bootId\" int8,\n  \"chip\" text,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"currentFirmwareId\" uuid,\n  \"elfSha256\" text,\n  \"fwVersion\" text,\n  \"hardwareId\" text NOT NULL,\n  \"health\" jsonb,\n  \"id\" text NOT NULL,\n  \"lastConnectedAt\" timestamptz,\n  \"lastDisconnectedAt\" timestamptz,\n  \"lastSeenAt\" timestamptz,\n  \"name\" text NOT NULL,\n  \"online\" bool DEFAULT false NOT NULL,\n  \"ownerId\" uuid NOT NULL,\n  \"passwordHash\" text NOT NULL,\n  \"platform\" text NOT NULL,\n  \"resetReason\" text,\n  \"revokedAt\" timestamptz,\n  \"status\" text DEFAULT 'active' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"uptimeMs\" int8,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"device_status_check_3eae755e\" CHECK (\"status\" IN ('active', 'revoked', 'superseded'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"device\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.device_heartbeat",
+    "label": "Create table \"device_heartbeat\"",
+    "summary": "Creates table \"device_heartbeat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "device_heartbeat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"device_heartbeat\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"device_heartbeat\"",
+        "sql": "CREATE TABLE \"public\".\"device_heartbeat\" (\n  \"data\" jsonb NOT NULL,\n  \"deviceId\" text NOT NULL,\n  \"id\" BIGSERIAL NOT NULL,\n  \"receivedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"uptimeMs\" int8,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"device_heartbeat\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.device_log",
+    "label": "Create table \"device_log\"",
+    "summary": "Creates table \"device_log\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "device_log"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"device_log\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"device_log\"",
+        "sql": "CREATE TABLE \"public\".\"device_log\" (\n  \"bootId\" int8,\n  \"deviceId\" text NOT NULL,\n  \"deviceTimeMs\" int8,\n  \"firmwareId\" uuid,\n  \"id\" BIGSERIAL NOT NULL,\n  \"kind\" text NOT NULL,\n  \"level\" int2 NOT NULL,\n  \"message\" text,\n  \"packetType\" int2,\n  \"raw\" bytea,\n  \"receivedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"seq\" int4,\n  \"tag\" text,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"device_log_kind_check_1363423d\" CHECK (\"kind\" IN ('text', 'bin'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"device_log\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.enrollment_token",
+    "label": "Create table \"enrollment_token\"",
+    "summary": "Creates table \"enrollment_token\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "enrollment_token"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"enrollment_token\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"enrollment_token\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"enrollment_token\"",
+        "sql": "CREATE TABLE \"public\".\"enrollment_token\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deviceId\" text,\n  \"deviceName\" text,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"ownerId\" uuid NOT NULL,\n  \"tokenHash\" text NOT NULL,\n  \"usedAt\" timestamptz,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"enrollment_token\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"enrollment_token\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.firmware",
+    "label": "Create table \"firmware\"",
+    "summary": "Creates table \"firmware\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "firmware"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"firmware\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"firmware\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"firmware\"",
+        "sql": "CREATE TABLE \"public\".\"firmware\" (\n  \"binKey\" text NOT NULL,\n  \"binSha256\" text NOT NULL,\n  \"buildTime\" text,\n  \"chip\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"elfKey\" text,\n  \"elfSha256\" text NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"idfVersion\" text,\n  \"notes\" text,\n  \"ownerId\" uuid NOT NULL,\n  \"platform\" text NOT NULL,\n  \"projectName\" text NOT NULL,\n  \"size\" int4 NOT NULL,\n  \"version\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"firmware\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"firmware\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.ota_job",
+    "label": "Create table \"ota_job\"",
+    "summary": "Creates table \"ota_job\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "ota_job"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"ota_job\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_job\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"ota_job\"",
+        "sql": "CREATE TABLE \"public\".\"ota_job\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"firmwareId\" uuid NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"note\" text,\n  \"ownerId\" uuid NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"ota_job\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_job\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.ota_task",
+    "label": "Create table \"ota_task\"",
+    "summary": "Creates table \"ota_task\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "ota_task"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"ota_task\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"ota_task\"",
+        "sql": "CREATE TABLE \"public\".\"ota_task\" (\n  \"commandId\" uuid,\n  \"completedAt\" timestamptz,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"deviceId\" text NOT NULL,\n  \"error\" text,\n  \"id\" uuid NOT NULL,\n  \"jobId\" uuid NOT NULL,\n  \"previousElfSha256\" text,\n  \"progress\" int2 DEFAULT 0 NOT NULL,\n  \"status\" text DEFAULT 'pending' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"ota_task_status_check_2bbbd189\" CHECK (\"status\" IN ('pending', 'sent', 'downloading', 'verifying', 'rebooting', 'succeeded', 'failed', 'cancelled'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"ota_task\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.session",
+    "label": "Create table \"session\"",
+    "summary": "Creates table \"session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"session\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"session\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"session\"",
+        "sql": "CREATE TABLE \"public\".\"session\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"expiresAt\" timestamptz NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"lastUsedAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"tokenHash\" text NOT NULL,\n  \"userId\" uuid NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"session\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"session\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.user",
+    "label": "Create table \"user\"",
+    "summary": "Creates table \"user\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"user\"",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"name\" text,\n  \"passwordHash\" text NOT NULL,\n  \"role\" text DEFAULT 'user' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"user_role_check_5b6d1a59\" CHECK (\"role\" IN ('user', 'admin'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.enrollment_token.enrollment_token_tokenHash_key",
+    "label": "Add unique constraint on \"enrollment_token\" (tokenHash)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "enrollment_token_tokenHash_key",
+        "table": "enrollment_token"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"enrollment_token_tokenHash_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "enrollment_token_tokenHash_key",
+          "public",
+          "\"public\".\"enrollment_token\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"enrollment_token_tokenHash_key\"",
+        "sql": "ALTER TABLE \"public\".\"enrollment_token\" ADD CONSTRAINT \"enrollment_token_tokenHash_key\" UNIQUE (\"tokenHash\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"enrollment_token_tokenHash_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "enrollment_token_tokenHash_key",
+          "public",
+          "\"public\".\"enrollment_token\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.firmware.firmware_ownerId_binSha256_key",
+    "label": "Add unique constraint on \"firmware\" (ownerId, binSha256)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "firmware_ownerId_binSha256_key",
+        "table": "firmware"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"firmware_ownerId_binSha256_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "firmware_ownerId_binSha256_key",
+          "public",
+          "\"public\".\"firmware\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"firmware_ownerId_binSha256_key\"",
+        "sql": "ALTER TABLE \"public\".\"firmware\" ADD CONSTRAINT \"firmware_ownerId_binSha256_key\" UNIQUE (\"ownerId\", \"binSha256\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"firmware_ownerId_binSha256_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "firmware_ownerId_binSha256_key",
+          "public",
+          "\"public\".\"firmware\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.session.session_tokenHash_key",
+    "label": "Add unique constraint on \"session\" (tokenHash)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "session_tokenHash_key",
+        "table": "session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"session_tokenHash_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "session_tokenHash_key",
+          "public",
+          "\"public\".\"session\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"session_tokenHash_key\"",
+        "sql": "ALTER TABLE \"public\".\"session\" ADD CONSTRAINT \"session_tokenHash_key\" UNIQUE (\"tokenHash\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"session_tokenHash_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "session_tokenHash_key",
+          "public",
+          "\"public\".\"session\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.user.user_email_key",
+    "label": "Add unique constraint on \"user\" (email)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "user_email_key",
+        "table": "user"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"user_email_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"user_email_key\"",
+        "sql": "ALTER TABLE \"public\".\"user\" ADD CONSTRAINT \"user_email_key\" UNIQUE (\"email\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"user_email_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "user_email_key",
+          "public",
+          "\"public\".\"user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.command.command_deviceId_createdAt_idx_e2036dd5",
+    "label": "Create index \"command_deviceId_createdAt_idx_e2036dd5\" on \"command\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "command_deviceId_createdAt_idx_e2036dd5",
+        "table": "command"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"command_deviceId_createdAt_idx_e2036dd5\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command_deviceId_createdAt_idx_e2036dd5\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"command_deviceId_createdAt_idx_e2036dd5\"",
+        "sql": "CREATE INDEX \"command_deviceId_createdAt_idx_e2036dd5\" ON \"public\".\"command\" (\"deviceId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"command_deviceId_createdAt_idx_e2036dd5\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command_deviceId_createdAt_idx_e2036dd5\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.command.command_deviceId_idx_a7d461e8",
+    "label": "Create index \"command_deviceId_idx_a7d461e8\" on \"command\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "command_deviceId_idx_a7d461e8",
+        "table": "command"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"command_deviceId_idx_a7d461e8\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"command_deviceId_idx_a7d461e8\"",
+        "sql": "CREATE INDEX \"command_deviceId_idx_a7d461e8\" ON \"public\".\"command\" (\"deviceId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"command_deviceId_idx_a7d461e8\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.command.command_status_expiresAt_idx_c206f415",
+    "label": "Create index \"command_status_expiresAt_idx_c206f415\" on \"command\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "command_status_expiresAt_idx_c206f415",
+        "table": "command"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"command_status_expiresAt_idx_c206f415\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command_status_expiresAt_idx_c206f415\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"command_status_expiresAt_idx_c206f415\"",
+        "sql": "CREATE INDEX \"command_status_expiresAt_idx_c206f415\" ON \"public\".\"command\" (\"status\", \"expiresAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"command_status_expiresAt_idx_c206f415\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"command_status_expiresAt_idx_c206f415\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device.device_hardwareId_idx_39f91584",
+    "label": "Create index \"device_hardwareId_idx_39f91584\" on \"device\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_hardwareId_idx_39f91584",
+        "table": "device"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_hardwareId_idx_39f91584\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_hardwareId_idx_39f91584\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_hardwareId_idx_39f91584\"",
+        "sql": "CREATE INDEX \"device_hardwareId_idx_39f91584\" ON \"public\".\"device\" (\"hardwareId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_hardwareId_idx_39f91584\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_hardwareId_idx_39f91584\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device.device_ownerId_idx_e2d0c1ef",
+    "label": "Create index \"device_ownerId_idx_e2d0c1ef\" on \"device\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_ownerId_idx_e2d0c1ef",
+        "table": "device"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_ownerId_idx_e2d0c1ef\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_ownerId_idx_e2d0c1ef\"",
+        "sql": "CREATE INDEX \"device_ownerId_idx_e2d0c1ef\" ON \"public\".\"device\" (\"ownerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_ownerId_idx_e2d0c1ef\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device_heartbeat.device_heartbeat_deviceId_idx_a7d461e8",
+    "label": "Create index \"device_heartbeat_deviceId_idx_a7d461e8\" on \"device_heartbeat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_heartbeat_deviceId_idx_a7d461e8",
+        "table": "device_heartbeat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_heartbeat_deviceId_idx_a7d461e8\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_heartbeat_deviceId_idx_a7d461e8\"",
+        "sql": "CREATE INDEX \"device_heartbeat_deviceId_idx_a7d461e8\" ON \"public\".\"device_heartbeat\" (\"deviceId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_heartbeat_deviceId_idx_a7d461e8\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device_heartbeat.device_heartbeat_deviceId_receivedAt_idx_7390f69d",
+    "label": "Create index \"device_heartbeat_deviceId_receivedAt_idx_7390f69d\" on \"device_heartbeat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_heartbeat_deviceId_receivedAt_idx_7390f69d",
+        "table": "device_heartbeat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_heartbeat_deviceId_receivedAt_idx_7390f69d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat_deviceId_receivedAt_idx_7390f69d\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_heartbeat_deviceId_receivedAt_idx_7390f69d\"",
+        "sql": "CREATE INDEX \"device_heartbeat_deviceId_receivedAt_idx_7390f69d\" ON \"public\".\"device_heartbeat\" (\"deviceId\", \"receivedAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_heartbeat_deviceId_receivedAt_idx_7390f69d\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat_deviceId_receivedAt_idx_7390f69d\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device_heartbeat.device_heartbeat_receivedAt_idx_9e532856",
+    "label": "Create index \"device_heartbeat_receivedAt_idx_9e532856\" on \"device_heartbeat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_heartbeat_receivedAt_idx_9e532856",
+        "table": "device_heartbeat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_heartbeat_receivedAt_idx_9e532856\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat_receivedAt_idx_9e532856\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_heartbeat_receivedAt_idx_9e532856\"",
+        "sql": "CREATE INDEX \"device_heartbeat_receivedAt_idx_9e532856\" ON \"public\".\"device_heartbeat\" (\"receivedAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_heartbeat_receivedAt_idx_9e532856\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_heartbeat_receivedAt_idx_9e532856\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device_log.device_log_deviceId_id_idx_fc846f38",
+    "label": "Create index \"device_log_deviceId_id_idx_fc846f38\" on \"device_log\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_log_deviceId_id_idx_fc846f38",
+        "table": "device_log"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_log_deviceId_id_idx_fc846f38\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log_deviceId_id_idx_fc846f38\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_log_deviceId_id_idx_fc846f38\"",
+        "sql": "CREATE INDEX \"device_log_deviceId_id_idx_fc846f38\" ON \"public\".\"device_log\" (\"deviceId\", \"id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_log_deviceId_id_idx_fc846f38\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log_deviceId_id_idx_fc846f38\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device_log.device_log_deviceId_idx_a7d461e8",
+    "label": "Create index \"device_log_deviceId_idx_a7d461e8\" on \"device_log\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_log_deviceId_idx_a7d461e8",
+        "table": "device_log"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_log_deviceId_idx_a7d461e8\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_log_deviceId_idx_a7d461e8\"",
+        "sql": "CREATE INDEX \"device_log_deviceId_idx_a7d461e8\" ON \"public\".\"device_log\" (\"deviceId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_log_deviceId_idx_a7d461e8\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.device_log.device_log_receivedAt_idx_9e532856",
+    "label": "Create index \"device_log_receivedAt_idx_9e532856\" on \"device_log\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "device_log_receivedAt_idx_9e532856",
+        "table": "device_log"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"device_log_receivedAt_idx_9e532856\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log_receivedAt_idx_9e532856\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"device_log_receivedAt_idx_9e532856\"",
+        "sql": "CREATE INDEX \"device_log_receivedAt_idx_9e532856\" ON \"public\".\"device_log\" (\"receivedAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"device_log_receivedAt_idx_9e532856\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"device_log_receivedAt_idx_9e532856\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.enrollment_token.enrollment_token_ownerId_idx_e2d0c1ef",
+    "label": "Create index \"enrollment_token_ownerId_idx_e2d0c1ef\" on \"enrollment_token\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "enrollment_token_ownerId_idx_e2d0c1ef",
+        "table": "enrollment_token"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"enrollment_token_ownerId_idx_e2d0c1ef\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"enrollment_token_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"enrollment_token_ownerId_idx_e2d0c1ef\"",
+        "sql": "CREATE INDEX \"enrollment_token_ownerId_idx_e2d0c1ef\" ON \"public\".\"enrollment_token\" (\"ownerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"enrollment_token_ownerId_idx_e2d0c1ef\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"enrollment_token_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.firmware.firmware_elfSha256_idx_91587e2e",
+    "label": "Create index \"firmware_elfSha256_idx_91587e2e\" on \"firmware\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "firmware_elfSha256_idx_91587e2e",
+        "table": "firmware"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"firmware_elfSha256_idx_91587e2e\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"firmware_elfSha256_idx_91587e2e\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"firmware_elfSha256_idx_91587e2e\"",
+        "sql": "CREATE INDEX \"firmware_elfSha256_idx_91587e2e\" ON \"public\".\"firmware\" (\"elfSha256\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"firmware_elfSha256_idx_91587e2e\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"firmware_elfSha256_idx_91587e2e\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.firmware.firmware_ownerId_idx_e2d0c1ef",
+    "label": "Create index \"firmware_ownerId_idx_e2d0c1ef\" on \"firmware\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "firmware_ownerId_idx_e2d0c1ef",
+        "table": "firmware"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"firmware_ownerId_idx_e2d0c1ef\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"firmware_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"firmware_ownerId_idx_e2d0c1ef\"",
+        "sql": "CREATE INDEX \"firmware_ownerId_idx_e2d0c1ef\" ON \"public\".\"firmware\" (\"ownerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"firmware_ownerId_idx_e2d0c1ef\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"firmware_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.ota_job.ota_job_firmwareId_idx_74e8e8c7",
+    "label": "Create index \"ota_job_firmwareId_idx_74e8e8c7\" on \"ota_job\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "ota_job_firmwareId_idx_74e8e8c7",
+        "table": "ota_job"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"ota_job_firmwareId_idx_74e8e8c7\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_job_firmwareId_idx_74e8e8c7\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"ota_job_firmwareId_idx_74e8e8c7\"",
+        "sql": "CREATE INDEX \"ota_job_firmwareId_idx_74e8e8c7\" ON \"public\".\"ota_job\" (\"firmwareId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"ota_job_firmwareId_idx_74e8e8c7\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_job_firmwareId_idx_74e8e8c7\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.ota_job.ota_job_ownerId_idx_e2d0c1ef",
+    "label": "Create index \"ota_job_ownerId_idx_e2d0c1ef\" on \"ota_job\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "ota_job_ownerId_idx_e2d0c1ef",
+        "table": "ota_job"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"ota_job_ownerId_idx_e2d0c1ef\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_job_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"ota_job_ownerId_idx_e2d0c1ef\"",
+        "sql": "CREATE INDEX \"ota_job_ownerId_idx_e2d0c1ef\" ON \"public\".\"ota_job\" (\"ownerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"ota_job_ownerId_idx_e2d0c1ef\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_job_ownerId_idx_e2d0c1ef\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.ota_task.ota_task_deviceId_idx_a7d461e8",
+    "label": "Create index \"ota_task_deviceId_idx_a7d461e8\" on \"ota_task\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "ota_task_deviceId_idx_a7d461e8",
+        "table": "ota_task"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"ota_task_deviceId_idx_a7d461e8\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"ota_task_deviceId_idx_a7d461e8\"",
+        "sql": "CREATE INDEX \"ota_task_deviceId_idx_a7d461e8\" ON \"public\".\"ota_task\" (\"deviceId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"ota_task_deviceId_idx_a7d461e8\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task_deviceId_idx_a7d461e8\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.ota_task.ota_task_deviceId_status_idx_bb11af39",
+    "label": "Create index \"ota_task_deviceId_status_idx_bb11af39\" on \"ota_task\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "ota_task_deviceId_status_idx_bb11af39",
+        "table": "ota_task"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"ota_task_deviceId_status_idx_bb11af39\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task_deviceId_status_idx_bb11af39\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"ota_task_deviceId_status_idx_bb11af39\"",
+        "sql": "CREATE INDEX \"ota_task_deviceId_status_idx_bb11af39\" ON \"public\".\"ota_task\" (\"deviceId\", \"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"ota_task_deviceId_status_idx_bb11af39\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task_deviceId_status_idx_bb11af39\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.ota_task.ota_task_jobId_idx_623c8f77",
+    "label": "Create index \"ota_task_jobId_idx_623c8f77\" on \"ota_task\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "ota_task_jobId_idx_623c8f77",
+        "table": "ota_task"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"ota_task_jobId_idx_623c8f77\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task_jobId_idx_623c8f77\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"ota_task_jobId_idx_623c8f77\"",
+        "sql": "CREATE INDEX \"ota_task_jobId_idx_623c8f77\" ON \"public\".\"ota_task\" (\"jobId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"ota_task_jobId_idx_623c8f77\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ota_task_jobId_idx_623c8f77\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.session.session_userId_idx_a489d58a",
+    "label": "Create index \"session_userId_idx_a489d58a\" on \"session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "session_userId_idx_a489d58a",
+        "table": "session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"session_userId_idx_a489d58a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"session_userId_idx_a489d58a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"session_userId_idx_a489d58a\"",
+        "sql": "CREATE INDEX \"session_userId_idx_a489d58a\" ON \"public\".\"session\" (\"userId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"session_userId_idx_a489d58a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"session_userId_idx_a489d58a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.command.command_deviceId_fkey",
+    "label": "Add foreign key \"command_deviceId_fkey\" on \"command\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "command_deviceId_fkey",
+        "table": "command"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"command_deviceId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "command_deviceId_fkey",
+          "public",
+          "\"public\".\"command\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"command_deviceId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"command\"\nADD CONSTRAINT \"command_deviceId_fkey\"\nFOREIGN KEY (\"deviceId\")\nREFERENCES \"public\".\"device\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"command_deviceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "command_deviceId_fkey",
+          "public",
+          "\"public\".\"command\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.device.device_ownerId_fkey",
+    "label": "Add foreign key \"device_ownerId_fkey\" on \"device\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "device_ownerId_fkey",
+        "table": "device"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"device_ownerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "device_ownerId_fkey",
+          "public",
+          "\"public\".\"device\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"device_ownerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"device\"\nADD CONSTRAINT \"device_ownerId_fkey\"\nFOREIGN KEY (\"ownerId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"device_ownerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "device_ownerId_fkey",
+          "public",
+          "\"public\".\"device\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.device_heartbeat.device_heartbeat_deviceId_fkey",
+    "label": "Add foreign key \"device_heartbeat_deviceId_fkey\" on \"device_heartbeat\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "device_heartbeat_deviceId_fkey",
+        "table": "device_heartbeat"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"device_heartbeat_deviceId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "device_heartbeat_deviceId_fkey",
+          "public",
+          "\"public\".\"device_heartbeat\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"device_heartbeat_deviceId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"device_heartbeat\"\nADD CONSTRAINT \"device_heartbeat_deviceId_fkey\"\nFOREIGN KEY (\"deviceId\")\nREFERENCES \"public\".\"device\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"device_heartbeat_deviceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "device_heartbeat_deviceId_fkey",
+          "public",
+          "\"public\".\"device_heartbeat\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.device_log.device_log_deviceId_fkey",
+    "label": "Add foreign key \"device_log_deviceId_fkey\" on \"device_log\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "device_log_deviceId_fkey",
+        "table": "device_log"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"device_log_deviceId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "device_log_deviceId_fkey",
+          "public",
+          "\"public\".\"device_log\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"device_log_deviceId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"device_log\"\nADD CONSTRAINT \"device_log_deviceId_fkey\"\nFOREIGN KEY (\"deviceId\")\nREFERENCES \"public\".\"device\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"device_log_deviceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "device_log_deviceId_fkey",
+          "public",
+          "\"public\".\"device_log\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.enrollment_token.enrollment_token_ownerId_fkey",
+    "label": "Add foreign key \"enrollment_token_ownerId_fkey\" on \"enrollment_token\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "enrollment_token_ownerId_fkey",
+        "table": "enrollment_token"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"enrollment_token_ownerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "enrollment_token_ownerId_fkey",
+          "public",
+          "\"public\".\"enrollment_token\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"enrollment_token_ownerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"enrollment_token\"\nADD CONSTRAINT \"enrollment_token_ownerId_fkey\"\nFOREIGN KEY (\"ownerId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"enrollment_token_ownerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "enrollment_token_ownerId_fkey",
+          "public",
+          "\"public\".\"enrollment_token\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.firmware.firmware_ownerId_fkey",
+    "label": "Add foreign key \"firmware_ownerId_fkey\" on \"firmware\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "firmware_ownerId_fkey",
+        "table": "firmware"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"firmware_ownerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "firmware_ownerId_fkey",
+          "public",
+          "\"public\".\"firmware\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"firmware_ownerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"firmware\"\nADD CONSTRAINT \"firmware_ownerId_fkey\"\nFOREIGN KEY (\"ownerId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"firmware_ownerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "firmware_ownerId_fkey",
+          "public",
+          "\"public\".\"firmware\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.ota_job.ota_job_ownerId_fkey",
+    "label": "Add foreign key \"ota_job_ownerId_fkey\" on \"ota_job\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "ota_job_ownerId_fkey",
+        "table": "ota_job"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"ota_job_ownerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_job_ownerId_fkey",
+          "public",
+          "\"public\".\"ota_job\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"ota_job_ownerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"ota_job\"\nADD CONSTRAINT \"ota_job_ownerId_fkey\"\nFOREIGN KEY (\"ownerId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"ota_job_ownerId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_job_ownerId_fkey",
+          "public",
+          "\"public\".\"ota_job\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.ota_job.ota_job_firmwareId_fkey",
+    "label": "Add foreign key \"ota_job_firmwareId_fkey\" on \"ota_job\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "ota_job_firmwareId_fkey",
+        "table": "ota_job"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"ota_job_firmwareId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_job_firmwareId_fkey",
+          "public",
+          "\"public\".\"ota_job\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"ota_job_firmwareId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"ota_job\"\nADD CONSTRAINT \"ota_job_firmwareId_fkey\"\nFOREIGN KEY (\"firmwareId\")\nREFERENCES \"public\".\"firmware\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"ota_job_firmwareId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_job_firmwareId_fkey",
+          "public",
+          "\"public\".\"ota_job\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.ota_task.ota_task_jobId_fkey",
+    "label": "Add foreign key \"ota_task_jobId_fkey\" on \"ota_task\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "ota_task_jobId_fkey",
+        "table": "ota_task"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"ota_task_jobId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_task_jobId_fkey",
+          "public",
+          "\"public\".\"ota_task\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"ota_task_jobId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"ota_task\"\nADD CONSTRAINT \"ota_task_jobId_fkey\"\nFOREIGN KEY (\"jobId\")\nREFERENCES \"public\".\"ota_job\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"ota_task_jobId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_task_jobId_fkey",
+          "public",
+          "\"public\".\"ota_task\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.ota_task.ota_task_deviceId_fkey",
+    "label": "Add foreign key \"ota_task_deviceId_fkey\" on \"ota_task\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "ota_task_deviceId_fkey",
+        "table": "ota_task"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"ota_task_deviceId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_task_deviceId_fkey",
+          "public",
+          "\"public\".\"ota_task\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"ota_task_deviceId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"ota_task\"\nADD CONSTRAINT \"ota_task_deviceId_fkey\"\nFOREIGN KEY (\"deviceId\")\nREFERENCES \"public\".\"device\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"ota_task_deviceId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "ota_task_deviceId_fkey",
+          "public",
+          "\"public\".\"ota_task\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.session.session_userId_fkey",
+    "label": "Add foreign key \"session_userId_fkey\" on \"session\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "session_userId_fkey",
+        "table": "session"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"session_userId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "session_userId_fkey",
+          "public",
+          "\"public\".\"session\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"session_userId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"session\"\nADD CONSTRAINT \"session_userId_fkey\"\nFOREIGN KEY (\"userId\")\nREFERENCES \"public\".\"user\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"session_userId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "session_userId_fkey",
+          "public",
+          "\"public\".\"session\""
+        ]
+      }
+    ]
+  }
+]

@@ -326,6 +326,13 @@
                   "kind": "scalar"
                 }
               },
+              "connectionName": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -559,6 +566,9 @@
                 "chip": {
                   "column": "chip"
                 },
+                "connectionName": {
+                  "column": "connectionName"
+                },
                 "createdAt": {
                   "column": "createdAt"
                 },
@@ -759,6 +769,13 @@
                   "kind": "scalar"
                 }
               },
+              "loggedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar"
+                }
+              },
               "message": {
                 "nullable": true,
                 "type": {
@@ -842,6 +859,9 @@
                 },
                 "level": {
                   "column": "level"
+                },
+                "loggedAt": {
+                  "column": "loggedAt"
                 },
                 "message": {
                   "column": "message"
@@ -1856,6 +1876,11 @@
                   "dataType": "pg/text",
                   "nullable": true
                 },
+                "connectionName": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-date@1",
                   "dataType": "pg/timestamptz",
@@ -2167,6 +2192,11 @@
                   "codecId": "pg/int2@1",
                   "dataType": "pg/int2",
                   "nullable": false
+                },
+                "loggedAt": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true
                 },
                 "message": {
                   "codecId": "pg/text@1",
@@ -2958,7 +2988,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "b03e722ab1fb0ba0c3082d97f47a9d157f4d2b0ee030a63ca0f5de81d8f99965"
+    "storageHash": "fd6b8a237a9a45b551b8d58c13485c46ce2c9020a56c5eebe5c27e28255d8723"
   },
   "execution": {
     "executionHash": "195fd9d1cbf1718bc1fc335b38eb563bd067bb4db9db454bd5fcfacf5d69f6ff",

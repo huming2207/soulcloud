@@ -99,6 +99,7 @@ model Device {
   status             DeviceStatus       @default(Active)
   passwordHash       String
   online             Boolean            @default(false)
+  connectionName     String?
   lastSeenAt         TimestamptzJsDate?
   lastConnectedAt    TimestamptzJsDate?
   lastDisconnectedAt TimestamptzJsDate?
@@ -148,6 +149,7 @@ model DeviceLog {
   level        SmallInt
   tag          String?
   deviceTimeMs BigIntNumber?
+  loggedAt     TimestamptzJsDate?
   seq          Int?
   bootId       BigIntNumber?
   packetType   SmallInt?

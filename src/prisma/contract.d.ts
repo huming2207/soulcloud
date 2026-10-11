@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b03e722ab1fb0ba0c3082d97f47a9d157f4d2b0ee030a63ca0f5de81d8f99965'>;
+  StorageHashBase<'fd6b8a237a9a45b551b8d58c13485c46ce2c9020a56c5eebe5c27e28255d8723'>;
 export type ExecutionHash =
   ExecutionHashBase<'195fd9d1cbf1718bc1fc335b38eb563bd067bb4db9db454bd5fcfacf5d69f6ff'>;
 export type ProfileHash =
@@ -251,6 +251,7 @@ export type FieldOutputTypes = {
     readonly Device: {
       readonly bootId: CodecTypes['pg/int8number@1']['output'] | null;
       readonly chip: CodecTypes['pg/text@1']['output'] | null;
+      readonly connectionName: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-date@1']['output'];
       readonly currentFirmwareId: CodecTypes['pg/uuid@1']['output'] | null;
       readonly elfSha256: CodecTypes['pg/text@1']['output'] | null;
@@ -287,6 +288,7 @@ export type FieldOutputTypes = {
       readonly id: CodecTypes['pg/int8number@1']['output'];
       readonly kind: 'text' | 'bin';
       readonly level: CodecTypes['pg/int2@1']['output'];
+      readonly loggedAt: CodecTypes['pg/timestamptz-date@1']['output'] | null;
       readonly message: CodecTypes['pg/text@1']['output'] | null;
       readonly packetType: CodecTypes['pg/int2@1']['output'] | null;
       readonly raw: CodecTypes['pg/bytea@1']['output'] | null;
@@ -387,6 +389,7 @@ export type FieldInputTypes = {
     readonly Device: {
       readonly bootId: CodecTypes['pg/int8number@1']['input'] | null;
       readonly chip: CodecTypes['pg/text@1']['input'] | null;
+      readonly connectionName: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-date@1']['input'];
       readonly currentFirmwareId: CodecTypes['pg/uuid@1']['input'] | null;
       readonly elfSha256: CodecTypes['pg/text@1']['input'] | null;
@@ -423,6 +426,7 @@ export type FieldInputTypes = {
       readonly id: CodecTypes['pg/int8number@1']['input'];
       readonly kind: 'text' | 'bin';
       readonly level: CodecTypes['pg/int2@1']['input'];
+      readonly loggedAt: CodecTypes['pg/timestamptz-date@1']['input'] | null;
       readonly message: CodecTypes['pg/text@1']['input'] | null;
       readonly packetType: CodecTypes['pg/int2@1']['input'] | null;
       readonly raw: CodecTypes['pg/bytea@1']['input'] | null;
@@ -523,6 +527,7 @@ export type StorageColumnTypes = {
     readonly device: {
       readonly bootId: CodecTypes['pg/int8number@1']['output'] | null;
       readonly chip: CodecTypes['pg/text@1']['output'] | null;
+      readonly connectionName: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-date@1']['output'];
       readonly currentFirmwareId: CodecTypes['pg/uuid@1']['output'] | null;
       readonly elfSha256: CodecTypes['pg/text@1']['output'] | null;
@@ -559,6 +564,7 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/int8number@1']['output'];
       readonly kind: 'text' | 'bin';
       readonly level: CodecTypes['pg/int2@1']['output'];
+      readonly loggedAt: CodecTypes['pg/timestamptz-date@1']['output'] | null;
       readonly message: CodecTypes['pg/text@1']['output'] | null;
       readonly packetType: CodecTypes['pg/int2@1']['output'] | null;
       readonly raw: CodecTypes['pg/bytea@1']['output'] | null;
@@ -659,6 +665,7 @@ export type StorageColumnInputTypes = {
     readonly device: {
       readonly bootId: CodecTypes['pg/int8number@1']['input'] | null;
       readonly chip: CodecTypes['pg/text@1']['input'] | null;
+      readonly connectionName: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-date@1']['input'];
       readonly currentFirmwareId: CodecTypes['pg/uuid@1']['input'] | null;
       readonly elfSha256: CodecTypes['pg/text@1']['input'] | null;
@@ -695,6 +702,7 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/int8number@1']['input'];
       readonly kind: 'text' | 'bin';
       readonly level: CodecTypes['pg/int2@1']['input'];
+      readonly loggedAt: CodecTypes['pg/timestamptz-date@1']['input'] | null;
       readonly message: CodecTypes['pg/text@1']['input'] | null;
       readonly packetType: CodecTypes['pg/int2@1']['input'] | null;
       readonly raw: CodecTypes['pg/bytea@1']['input'] | null;
@@ -797,6 +805,7 @@ export namespace Models {
   export type public_Device = {
     bootId: CodecTypes['pg/int8number@1']['output'] | null;
     chip: CodecTypes['pg/text@1']['output'] | null;
+    connectionName: CodecTypes['pg/text@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-date@1']['output'];
     currentFirmwareId: CodecTypes['pg/uuid@1']['output'] | null;
     elfSha256: CodecTypes['pg/text@1']['output'] | null;
@@ -841,6 +850,7 @@ export namespace Models {
     id: CodecTypes['pg/int8number@1']['output'];
     kind: 'text' | 'bin';
     level: CodecTypes['pg/int2@1']['output'];
+    loggedAt: CodecTypes['pg/timestamptz-date@1']['output'] | null;
     message: CodecTypes['pg/text@1']['output'] | null;
     packetType: CodecTypes['pg/int2@1']['output'] | null;
     raw: CodecTypes['pg/bytea@1']['output'] | null;
@@ -1103,6 +1113,12 @@ type ContractBase = Omit<
                   readonly many: false;
                 };
                 readonly chip: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly connectionName: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
@@ -1390,6 +1406,12 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/int2';
                   readonly codecId: 'pg/int2@1';
                   readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly loggedAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly message: {
@@ -2166,6 +2188,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly connectionName: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly createdAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -2326,6 +2352,7 @@ type ContractBase = Omit<
               readonly fields: {
                 readonly bootId: { readonly column: 'bootId' };
                 readonly chip: { readonly column: 'chip' };
+                readonly connectionName: { readonly column: 'connectionName' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly currentFirmwareId: { readonly column: 'currentFirmwareId' };
                 readonly elfSha256: { readonly column: 'elfSha256' };
@@ -2431,6 +2458,13 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int2@1' };
               };
+              readonly loggedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                };
+              };
               readonly message: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -2484,6 +2518,7 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly kind: { readonly column: 'kind' };
                 readonly level: { readonly column: 'level' };
+                readonly loggedAt: { readonly column: 'loggedAt' };
                 readonly message: { readonly column: 'message' };
                 readonly packetType: { readonly column: 'packetType' };
                 readonly raw: { readonly column: 'raw' };
